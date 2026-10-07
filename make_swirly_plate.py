@@ -46,7 +46,7 @@ def plate(rows, cols, thickness=THICKNESS, slot_width=SLOT_WIDTH):
     return base.cut(Part.makeCompound(cutters)).removeSplitter()
 
 
-if __name__ == "__main__" or True:
+if __name__ == "__main__":
     name = f"swirly-plate-{ROWS}x{COLS}"
     shape = plate(ROWS, COLS)
     print(name, "valid", shape.isValid(), "solids", len(shape.Solids),

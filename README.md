@@ -29,6 +29,8 @@ and one FeatherWing.
 | `swirly_grid.py` | Pure-Python swirly-grid geometry + hole-pattern fit checker (`python swirly_grid.py 2 4`) |
 | `make_swirly_plate.py` | FreeCAD generator for a printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `preview_swirly.py` | Matplotlib 2D preview |
+| `make_carrier.py` | Swirly plate + Feather bosses; the #4569 wing's ISM330DHCX sits over plate centre (env `CARRIER_BOSS_H`) |
+| `docs/mechanical_data.md` | Board hole/IC positions for the PR 839 sensors, Feather spec, servo dimensions |
 
 Generate with FreeCAD 1.1 (`C:\dev\software\FreeCAD\bin\freecadcmd.exe`):
 
