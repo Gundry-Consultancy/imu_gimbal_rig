@@ -1,0 +1,5 @@
+*.FCBak
+__pycache__/
+*.pyc
+build/
+tmp/
