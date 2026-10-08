@@ -63,9 +63,18 @@ holes unless a row says otherwise.
 
 | Servo | Body L x W x H | Tab length | Hole c-c | Tab underside from body bottom | Spline | Travel | Torque |
 |---|---|---|---|---|---|---|---|
-| MG90S | 22.8 x 12.2 x 28.5 | 32.2 | ~27.5–28 (single row) | 16–21: **measure** | 21T (some 20T) | 180° | 2.2 kg·cm @ 6 V |
-| DS3240 | 40 x 20 x 40.4 | 54.5 | 49.5 x 10 | 27.7 | 25T | 180° **or** 270° (same body) | 36–45 kg·cm |
+| MG90S (**measured**) | 22.7 x 12.3 x 32.0 (to spline top) | 32.2 | 27.5 (single row) | ~16.8; tab top to spline top 11.7–12 | 21T | 180° | 2.2 kg·cm @ 6 V |
+| DS3240MG (**measured**) | 40.5 x 20.5 x 46.2 (to spline top) | 54.5 | 48.5–48.6 x 9.5–10 | 28.2; tab 3.08; tab top to spline top 14 | 25T | 180° **or** 270° (same body) | 36–45 kg·cm |
 | MG995 | 40.7 x 19.7 x 42.9 | 54 | 48–49.5 x 9.5–10 | 28 | 25T | ~180° | 10 kg·cm @ 6 V |
 | DSC55MG (9imod?) | 39.9 x 20.1 x 46.0 | ~54? | unpublished: **measure** | ? | 25T | 270° (180° variant exists) | 43–58 kg·cm, 6–8.4 V HV |
 
 DS3240 STEP model: https://cdn.shopify.com/s/files/1/0673/6848/5000/files/DS3240.stp
+
+**About the measured values:**
+- **Source:** hand-measured on 2026-10-08. The readings run 0.1–0.2 mm
+  generous, deliberately, for fit.
+- **Tab top to spline top:** the CAD uses this as measured directly (MG90S 12.0,
+  DS3240 14.0), not base-to-spline minus base-to-tab minus tab (12.7 / 14.8),
+  because the generous readings add up.
+- **Still to measure:** horn sizes (P–S on `servo-measurements.png`) and the
+  DS3240 tab hole diameter.

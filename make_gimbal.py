@@ -11,7 +11,7 @@ Parts (exported to parts/):
                                 end walls carry the MG90S horn (+X) and the 623 idler axle (-X)
   striker_bar, striker_pawl, striker_cam, striker_stand
                                 cam-driven tap striker on the yoke (see make_striker.py)
-  tilt_ring_mg90s_tab16 / tab21 holds the roll MG90S (two tab-height variants) and the -X 623 bearing;
+  tilt_ring_mg90s                holds the roll MG90S and the -X 623 bearing;
                                 standard-servo horn on +Y bar, idler axle on -Y
   pan_yoke                      holds the standard tilt servo (+Y) and the -Y 623 bearing;
                                 pan horn on the underside
@@ -37,20 +37,33 @@ V = App.Vector
 PARTS_DIR = os.path.join(HERE, "parts")
 
 # --- servos ---------------------------------------------------------------
-# spline_above_tab: spline top above the tab top face (what sets mount position).
-# offset: shaft centre from body centre along the body's long axis.
-MG90S = dict(L=22.8, W=12.2, H=28.5, case_top=4.0, tab_len=32.2, tab_t=2.5,
-             holes=(27.5, 28.0), hole_across=0.0, pilot=1.7, offset=5.5, spline_r=2.4,
-             horn=dict(len=36.0, width=7.0, depth=2.0, hub=2.5, centre=6.0))
-STANDARD = dict(L=40.7, W=19.9, H=42.9, case_top=4.5, tab_len=54.5, tab_t=3.0,
-                holes=(48.5, 49.5), hole_across=10.0, pilot=2.4, offset=10.35, spline_r=3.0,
-                spline_above_tab=12.1,
-                horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0))
+# Measured by hand 2026-10-08 (see docs/servo-measurements.png). Letters match the drawing.
+# Readings run 0.1-0.2 mm generous (fit allowance), so they are used as-is.
+# spline_above_tab (G) sets the mount position: the directly measured G is used
+# (D - E - F reads ~0.8 mm more because the generous readings compound).
+# offset: shaft centre from body centre along the long axis = A/2 - H.
+MG90S_TAB = 16.8                                   # E, base to tab underside
+MG90S_G = 12.0                                     # G, tab top to spline top (11.7-12 measured)
+MG90S = dict(L=23.0,                               # A 22.7 measured, allow 23
+             W=12.3, H=32.0, case_top=4.0,         # C, D
+             tab_len=32.2, tab_t=2.5,              # B, F
+             holes=(27.3, 27.7), hole_across=0.0,  # J 27.5 (+/-0.2 slot), single row
+             pilot=1.7, offset=22.7 / 2 - 5.9,     # M 2.0 (M2 self-tap pilot), H 5.9
+             spline_r=2.4,                         # N 21T, ~4.8
+             horn=dict(len=36.0, width=7.0, depth=2.0, hub=2.5, centre=6.0))   # P-S not yet measured
+DS3240 = dict(L=40.5, W=20.5, H=46.2, case_top=4.5,   # A, C, D
+              tab_len=54.5, tab_t=3.2,                # B, F (3.08 measured)
+              holes=(48.4, 48.8), hole_across=9.75,   # J 48.5-48.6, K 9.5-10
+              pilot=2.4, offset=40.5 / 2 - 9.5,       # H ~9.5
+              spline_r=3.0,
+              spline_above_tab=14.0,                  # G measured (D - E - F reads 14.8)
+              horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0))  # P-S not yet measured
+STANDARD = DS3240      # tilt and pan servos (an MG995 would need its own measurements)
 
 
 def mg90s(tab_height):
     s = dict(MG90S)
-    s["spline_above_tab"] = s["H"] - tab_height - s["tab_t"]
+    s["spline_above_tab"] = MG90S_G
     s["tab_height"] = tab_height
     return s
 
@@ -357,7 +370,7 @@ def striker_limits(roll_parts, rings, striker_parked, striker_inst, yoke_parts, 
     print(f"striker vs yoke overlap {v:.3f} mm^3", flush=True)
 
 
-def build(variants=(16.0, 21.0), check=True):
+def build(variants=(MG90S_TAB,), check=True):
     os.makedirs(PARTS_DIR, exist_ok=True)
     stack_parts, board_refs = sensor_body()
     roll_parts = [shp for _, shp in stack_parts] + [b for _, b in board_refs]
@@ -381,7 +394,7 @@ def build(variants=(16.0, 21.0), check=True):
     printed = stack_parts + [("pan_yoke", yoke), ("base", base_shape)] + \
               [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_rest"]),
                ("striker_cam", st["cam"]), ("striker_stand", st["stand"])] + \
-              [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]
+              [("tilt_ring_mg90s" if len(rings) == 1 else f"tilt_ring_mg90s_tab{t:g}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
               f"{[round(v, 1) for v in (shp.BoundBox.XLength, shp.BoundBox.YLength, shp.BoundBox.ZLength)]}",

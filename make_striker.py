@@ -308,7 +308,7 @@ def build(g, mg):
     """g: dict with ring_out_y, upright_out_y, roof_z, upright_half_x. mg: the make_gimbal module."""
     y_uo = g["upright_out_y"]
     y_tip = 0.0
-    servo = mg.mg90s(16.0)
+    servo = mg.mg90s(mg.MG90S_TAB)
 
     # cam behind the stand plate, pad behind the cam
     r_guess = CAM_R0 + 9.0

@@ -23,22 +23,28 @@ FILL = "#dfe6ee"
 TAB = "#b8c6d6"
 CRIT = "#fdebd0"
 
+# Design values = what make_gimbal.py now uses. "measured" = hand readings 2026-10-08
+# (generous by 0.1-0.2 mm for fit). Blank = still to measure.
 SERVOS = [
     dict(
         title="MG90S micro (roll axis; also the 270° cam servo)",
-        L=22.8, W=12.2, H=28.5, case_top=4.0, tab_len=32.2, tab_t=2.5,
-        holes=(27.5, 28.0), across=0.0, hole_d=2.0, offset=5.5, spline_d=4.8,
-        tab_under=(16.0, 21.0), boss_d=11.5,
+        L=23.0, W=12.3, H=32.0, case_top=4.0, tab_len=32.2, tab_t=2.5,
+        holes=(27.3, 27.7), across=0.0, hole_d=2.0, offset=22.7 / 2 - 5.9, spline_d=4.8,
+        tab_under=(16.8,), G=12.0, Hval=5.9, boss_d=11.5,
         horn=dict(len=36.0, width=7.0, t=2.0, hub=2.5, hub_d=7.0, trimmed=14.0),
-        spline="21T*",
+        spline="21T",
+        measured=dict(A="22.7", B="32.2", C="12.3", D="32.0", E="~16.8", F="2.47", G="11.7–12",
+                      H="5.9", J="27.5", K="single row", M="2.0", N="21T"),
     ),
     dict(
-        title="Standard size: MG995 / DS3240 (tilt and pan axes)",
-        L=40.7, W=19.9, H=42.9, case_top=4.5, tab_len=54.5, tab_t=3.0,
-        holes=(48.5, 49.5), across=10.0, hole_d=4.5, offset=10.35, spline_d=6.0,
-        tab_under=(27.8,), boss_d=14.0,
+        title="DS3240MG (DSServo 40 kg) — tilt and pan axes",
+        L=40.5, W=20.5, H=46.2, case_top=4.5, tab_len=54.5, tab_t=3.2,
+        holes=(48.4, 48.8), across=9.75, hole_d=4.5, offset=40.5 / 2 - 9.5, spline_d=6.0,
+        tab_under=(28.2,), G=14.0, boss_d=14.0,
         horn=dict(len=46.0, width=8.5, t=2.5, hub=3.5, hub_d=10.0, trimmed=None),
         spline="25T",
+        measured=dict(A="40.5", B="54.5", C="20.5", D="46.2", E="28.2", F="3.08", G="14",
+                      H="~9.5", J="48.5–48.6", K="9.5–10"),
     ),
 ]
 
@@ -151,7 +157,7 @@ def horn_view(ax, s):
 
 def table(ax, s):
     tab_under = s["tab_under"]
-    g = [s["H"] - t - s["tab_t"] for t in tab_under]
+    g = [s["G"]] if "G" in s else [s["H"] - t - s["tab_t"] for t in tab_under]
     hp = s["holes"]
     rows = [
         ("A", "Body length", f"{s['L']}"),
@@ -161,7 +167,7 @@ def table(ax, s):
         ("E", "Base to tab underside", " / ".join(f"{t:g}" for t in tab_under)),
         ("F", "Tab thickness", f"{s['tab_t']}"),
         ("G", "Tab TOP to spline top  (sets mount)", " / ".join(f"{v:.1f}" for v in g)),
-        ("H", "Shaft centre to near body end", f"{s['L'] / 2 - s['offset']:.1f}"),
+        ("H", "Shaft centre to near body end", f"{s.get('Hval', s['L'] / 2 - s['offset']):.1f}"),
         ("J", "Hole centres along", f"{hp[0]}–{hp[1]}"),
         ("K", "Hole centres across", f"{s['across'] or 'single row'}"),
         ("M", "Tab hole Ø / slot width", f"{s['hole_d']}"),
@@ -173,7 +179,8 @@ def table(ax, s):
     ]
     crit = {"E", "G", "H", "J", "K", "P", "Q", "R", "S"}
     ax.axis("off")
-    cell = [[r[0], r[1], r[2], ""] for r in rows]
+    meas = s.get("measured", {})
+    cell = [[r[0], r[1], r[2], meas.get(r[0], "")] for r in rows]
     t = ax.table(cellText=cell, colLabels=["", "Dimension (mm)", "Design value", "Measured"],
                  colWidths=[0.06, 0.52, 0.22, 0.20], loc="upper left", cellLoc="left")
     t.auto_set_font_size(False)
@@ -186,13 +193,15 @@ def table(ax, s):
             cl.set_text_props(weight="bold")
         elif rows[r - 1][0] in crit:
             cl.set_facecolor(CRIT if c < 3 else "white")
+        if r > 0 and c == 3 and not meas.get(rows[r - 1][0]):
+            cl.set_facecolor("#fff3b0")
 
 
 def main():
     fig = plt.figure(figsize=(17, 21))
-    fig.suptitle("Servo dimensions to confirm / measure  —  imu_gimbal_rig", fontsize=16, weight="bold", y=0.985)
-    fig.text(0.5, 0.968, "Shaded = mount geometry depends on it. MG90S figures disagree between sources, "
-             "so E/G are drawn for both the 16 mm and 21 mm variants (tilt_ring_mg90s_tab16 / tab21). *some MG90S batches are 20T.",
+    fig.suptitle("Servo dimensions  —  imu_gimbal_rig", fontsize=16, weight="bold", y=0.985)
+    fig.text(0.5, 0.968, "Shaded = mount geometry depends on it. Design value = what the CAD uses. "
+             "Yellow Measured cells are still to measure (horns P–S).",
              ha="center", fontsize=10, color="#444")
     outer = fig.add_gridspec(2, 1, hspace=0.16, top=0.93, bottom=0.03, left=0.03, right=0.97)
     for i, s in enumerate(SERVOS):

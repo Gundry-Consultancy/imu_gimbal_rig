@@ -20,8 +20,9 @@ and one FeatherWing.
   hang off it on central standoffs in line with the roof, not at the edges.
 - STEMMA QT sized breakouts, 4 across, plus a Feather-sized place for one
   FeatherWing.
-- Hobby servos: MG90S (both published tab heights), DS3240, MG995, and a
-  270° servo for the striker cam.
+- Hobby servos: MG90S (roll, and an MG90S-size 270° servo for the striker
+  cam) and DS3240MG (tilt and pan). Both are measured; see
+  `docs/servo-measurements.png`.
 - Aim for ±180° on every axis. In practice the servo travel limits it.
 - Sensors do not need to sit on the rotation centre. Off-axis
   acceleration is accepted.
@@ -115,12 +116,16 @@ against the roll and tilt ranges, and reports any collision.
 | Part | Holds | Servo | Idler |
 |---|---|---|---|
 | `stack_*` | all the boards | MG90S horn pocket on the middle deck's +X wall | M3 axle boss on the -X wall |
-| `tilt_ring_mg90s_tab16` / `_tab21` | roll servo + 623 bearing | MG90S (16 mm and 21 mm tab heights, since the published figures disagree; hole slots cover 27.5–28 mm) | standard-servo horn on the +Y bar, M3 axle on -Y |
-| `pan_yoke` | tilt servo + 623 bearing, outer gussets, striker stand pilots | MG995 or DS3240 on +Y | pan horn pocket underneath |
-| `base` | pan servo | DS3240 (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
-| `striker_*` | bar, pawl, cam, stand | MG90S-size 270° servo (16 mm tab) | |
+| `tilt_ring_mg90s` | roll servo + 623 bearing | MG90S (measured) | DS3240 horn on the +Y bar, M3 axle on -Y |
+| `pan_yoke` | tilt servo + 623 bearing, outer gussets, striker stand pilots | DS3240MG on +Y | pan horn pocket underneath |
+| `base` | pan servo | DS3240MG (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
+| `striker_*` | bar, pawl, cam, stand | MG90S-size 270° servo | |
 
-The overall envelope is about 129 x 233 x 182 mm (with the striker), and the
+**Servo mounts:** each mount sets its height from G (tab top to spline top),
+taken as you measured it: MG90S 12.0, DS3240 14.0. If a servo sits a little
+low, put a washer under its tabs.
+
+The overall envelope is about 132 x 236 x 192 mm (with the striker), and the
 printed parts weigh about 340 g solid.
 
 **Hardware:**
@@ -132,10 +137,11 @@ printed parts weigh about 340 g solid.
 - striker: 4 x M3 x 10 (stand to yoke), 2 x M3 x 8 (pad), and a 1.75 mm filament pin
 - self-tapping screws for the horn arms and servo tabs
 
-**Assumptions to check:**
-- Horn arm sizes are guesses. MG90S: 36 x 7 x 2 deep. 25T: 46 x 8.5 x 2.5 deep.
-  The cam takes a double-arm horn trimmed to 14 mm.
-- Horn hub heights are guesses: 2.5 / 3.5 mm.
+**Still to measure** (yellow cells in `docs/servo-measurements.png`):
+- **Horn arm sizes** (guesses): MG90S 36 x 7 x 2 deep, DS3240 46 x 8.5 x 2.5
+  deep. The cam takes a double-arm horn trimmed to 14 mm.
+- **Horn hub heights** (guesses): 2.5 / 3.5 mm.
+- **DS3240 tab hole diameter.**
 
 ## Files
 
