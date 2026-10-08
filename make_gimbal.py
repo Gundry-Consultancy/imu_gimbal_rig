@@ -1,4 +1,4 @@
-"""Pan / tilt / roll gimbal around the sensor carrier. Run with freecadcmd.
+"""Pan / tilt / roll gimbal around the sensor box. Run with freecadcmd.
 
     freecadcmd -c "exec(open('make_gimbal.py').read(), {'__file__': 'make_gimbal.py', '__name__': '__main__'})"
 
@@ -6,7 +6,9 @@ Global frame: origin is the sensor IC (axis intersection), +X is the roll axis,
 +Y is the tilt axis, +Z is the pan axis (up).
 
 Parts (exported to parts/):
-  roll_cradle                   carrier sits in it; MG90S horn on +X wall, 623 idler axle on -X
+  sensor_tube, sensor_cap_drive, sensor_cap_idler
+                                the sensor box (see make_sensor_box.py); MG90S horn on the +X cap,
+                                623 idler axle on the -X cap
   tilt_ring_mg90s_tab16 / tab21 holds the roll MG90S (two tab-height variants) and the -X 623 bearing;
                                 standard-servo horn on +Y bar, idler axle on -Y
   pan_yoke                      holds the standard tilt servo (+Y) and the -Y 623 bearing;
@@ -27,7 +29,7 @@ import Mesh
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import make_carrier as mc  # noqa: E402
+import make_sensor_box as sb  # noqa: E402
 
 V = App.Vector
 PARTS_DIR = os.path.join(HERE, "parts")
@@ -59,20 +61,9 @@ AXLE_BOSS_D = 4.8   # touches inner race only
 M3_PILOT = 2.8
 
 # --- layout ------------------------------------------------------------------
-CARRIER_IC_Z = mc.THICKNESS + mc.BOSS_H + 1.6 + 0.8   # IC above carrier underside
-PLATE_W, PLATE_H = 60.96, 30.48
-CR_FLOOR_T = 3.0
-CR_WALL_T = 4.0
-CR_WALL_HALF_Y = 19.0
-CR_GAP = 0.5
-CR_WALL_IN = PLATE_W / 2 + CR_GAP           # inner face |x|
-CR_WALL_OUT = CR_WALL_IN + CR_WALL_T        # outer face |x|
-CR_Z0 = -CARRIER_IC_Z - CR_FLOOR_T          # cradle underside
-CR_HUB_R = 11.0
-
-RING_IN_Y = 27.5         # clears cradle sweep radius (~25.8)
+BODY_HALF_X = sb.TUBE_L / 2 + sb.CAP_T      # outer face of each end cap
+SWEEP_MARGIN = 4.0                          # beyond the measured sweep radius (cable slop)
 RING_BAR_T = 6.0
-RING_OUT_Y = RING_IN_Y + RING_BAR_T
 RING_BAR_HALF_Z = 7.0
 RING_BRG_PLATE_T = 6.0   # 4 mm bearing pocket + 2 mm lip
 RING_GAP = 1.5
@@ -80,7 +71,6 @@ RING_GAP = 1.5
 YOKE_PLATE_T = 6.0
 YOKE_HALF_X = 16.0
 YOKE_GAP = 1.5
-TILT_CLEAR_R = 72.0      # yoke floor below the tilt sweep
 YOKE_FLOOR_T = 6.0
 
 SERVO_PLATE_T = 5.0
@@ -171,64 +161,64 @@ def axle_boss(face, axis, length, pilot_depth):
 
 
 # --- parts -----------------------------------------------------------------
-def roll_cradle():
-    floor = box(-CR_WALL_OUT, CR_WALL_OUT, -PLATE_H / 2, PLATE_H / 2, CR_Z0, CR_Z0 + CR_FLOOR_T)
-    walls = []
-    for sx in (-1, 1):
-        x0, x1 = sorted((sx * CR_WALL_IN, sx * CR_WALL_OUT))
-        w = box(x0, x1, -CR_WALL_HALF_Y, CR_WALL_HALF_Y, CR_Z0, 0)
-        hub = cyl(CR_HUB_R, V(x0, 0, 0), V(x1, 0, 0))
-        walls.append(w.fuse(hub))
-    shape = floor.fuse(walls)
-    # carrier screws through the four centre-cell round holes (clear of Feather bosses)
-    pilots = [Part.makeCylinder(1.1, CR_FLOOR_T + 1, V(x, y, CR_Z0 - 0.5))
-              for x in (-7.62, 7.62) for y in (-7.62, 7.62)]
-    # +X: MG90S horn
-    horn = placed(horn_pocket(MG90S["horn"], through=CR_WALL_T + 2), V(CR_WALL_OUT, 0, 0), (0, 1, 0), (1, 0, 0))
-    # -X: axle boss into the ring's bearing
+def max_radius(shapes, axis):
+    """Largest distance of any (tessellated) point from an axis through the origin."""
+    a = V(*axis).normalize()
+    r = 0.0
+    for shp in shapes:
+        for p in shp.tessellate(0.2)[0]:
+            r = max(r, (p - a * p.dot(a)).Length)
+    return r
+
+
+def sensor_body():
+    tube, cap_p, cap_n = sb.sensor_box()
+    horn = placed(horn_pocket(MG90S["horn"], through=sb.CAP_T + 2), V(BODY_HALF_X, 0, 0), (0, 0, 1), (1, 0, 0))
+    cap_p = cap_p.cut(horn).removeSplitter()
     boss_len = RING_GAP + (RING_BRG_PLATE_T - BRG_W)
-    boss, pilot = axle_boss(V(-CR_WALL_OUT, 0, 0), (-1, 0, 0), boss_len, boss_len + CR_WALL_T - 0.5)
-    shape = shape.fuse(boss).cut(Part.makeCompound(pilots + [horn, pilot]))
-    return shape.removeSplitter()
+    boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + sb.CAP_T - 0.5)
+    cap_n = cap_n.fuse(boss).cut(pilot).removeSplitter()
+    return tube, cap_p, cap_n
 
 
-def tilt_ring(servo):
-    roll_spline_x = CR_WALL_OUT + servo["horn"]["hub"]
+def tilt_ring(servo, ring_in_y):
+    ring_out_y = ring_in_y + RING_BAR_T
+    roll_spline_x = BODY_HALF_X + servo["horn"]["hub"]
     s_origin, s_x, s_z = V(roll_spline_x, 0, 0), (0, 0, 1), (-1, 0, 0)
     # servo plate in servo-local coords: local x = world z, local y = world y, local z = -world x
     tab_z = servo["holes"][1] / 2 + 3
     plate, plate_cuts = servo_plate(servo, (-servo["offset"] - tab_z, -servo["offset"] + tab_z),
-                                    (-RING_OUT_Y, RING_OUT_Y))
+                                    (-ring_out_y, ring_out_y))
     plate = placed(plate, s_origin, s_x, s_z)
     plate_cuts = [placed(c, s_origin, s_x, s_z) for c in plate_cuts]
     plate_x_out = plate.BoundBox.XMax
 
-    brg_in = -(CR_WALL_OUT + RING_GAP)
+    brg_in = -(BODY_HALF_X + RING_GAP)
     brg_out = brg_in - RING_BRG_PLATE_T
-    brg_plate = box(brg_out, brg_in, -RING_OUT_Y, RING_OUT_Y, -RING_BAR_HALF_Z - 4, RING_BAR_HALF_Z + 4)
+    brg_plate = box(brg_out, brg_in, -ring_out_y, ring_out_y, -RING_BAR_HALF_Z - 5, RING_BAR_HALF_Z + 5)
 
     bars = [box(brg_out, plate_x_out, y0, y1, -RING_BAR_HALF_Z, RING_BAR_HALF_Z)
-            for y0, y1 in ((-RING_OUT_Y, -RING_IN_Y), (RING_IN_Y, RING_OUT_Y))]
+            for y0, y1 in ((-ring_out_y, -ring_in_y), (ring_in_y, ring_out_y))]
     shape = plate.fuse([brg_plate] + bars)
 
     cuts = plate_cuts + [bearing_housing_cut(V(brg_out, 0, 0), (-1, 0, 0))]
     # +Y: tilt servo horn (arm along X)
-    cuts.append(placed(horn_pocket(STANDARD["horn"], through=RING_BAR_T + 2), V(0, RING_OUT_Y, 0), (1, 0, 0), (0, 1, 0)))
+    cuts.append(placed(horn_pocket(STANDARD["horn"], through=RING_BAR_T + 2), V(0, ring_out_y, 0), (1, 0, 0), (0, 1, 0)))
     # -Y: axle boss into the yoke bearing
     boss_len = YOKE_GAP + (YOKE_PLATE_T - BRG_W)
-    boss, pilot = axle_boss(V(0, -RING_OUT_Y, 0), (0, -1, 0), boss_len, boss_len + RING_BAR_T - 0.5)
+    boss, pilot = axle_boss(V(0, -ring_out_y, 0), (0, -1, 0), boss_len, boss_len + RING_BAR_T - 0.5)
     shape = shape.fuse(boss).cut(Part.makeCompound(cuts + [pilot]))
     servo_env = placed(servo_envelope(servo), s_origin, s_x, s_z)
     brg_env = bearing_envelope(V(brg_out, 0, 0), (-1, 0, 0))
     return shape.removeSplitter(), servo_env, brg_env
 
 
-def pan_yoke():
+def pan_yoke(ring_out_y, tilt_clear_r):
     s = STANDARD
-    floor_top = -TILT_CLEAR_R
+    floor_top = -tilt_clear_r
     floor_bot = floor_top - YOKE_FLOOR_T
     # tilt servo on +Y
-    t_origin = V(0, RING_OUT_Y + s["horn"]["hub"], 0)
+    t_origin = V(0, ring_out_y + s["horn"]["hub"], 0)
     t_x, t_z = (0, 0, 1), (0, -1, 0)
     tab_half = s["tab_len"] / 2 + 3
     plate, plate_cuts = servo_plate(s, (-s["offset"] - tab_half, -s["offset"] + tab_half),
@@ -239,13 +229,20 @@ def pan_yoke():
     servo_upright = box(-YOKE_HALF_X, YOKE_HALF_X, pb.YMin, pb.YMax, floor_bot, pb.ZMax)
     plate_cuts = [placed(c, t_origin, t_x, t_z) for c in plate_cuts]
 
-    brg_in = -(RING_OUT_Y + YOKE_GAP)
+    brg_in = -(ring_out_y + YOKE_GAP)
     brg_out = brg_in - YOKE_PLATE_T
     idler_upright = box(-YOKE_HALF_X, YOKE_HALF_X, brg_out, brg_in, floor_bot, 12)
     idler_upright = idler_upright.fuse(cyl(YOKE_HALF_X, V(0, brg_out, 12 - YOKE_HALF_X), V(0, brg_in, 12 - YOKE_HALF_X)))
-    floor = box(-YOKE_HALF_X, YOKE_HALF_X, brg_out, pb.YMax, floor_bot, floor_top)
+    gusset_len = 25.0
+    floor = box(-YOKE_HALF_X, YOKE_HALF_X, brg_out - gusset_len, pb.YMax + gusset_len, floor_bot, floor_top)
+    gussets = []
+    for x in (-YOKE_HALF_X, YOKE_HALF_X - 5):
+        for y_face, out in ((brg_out, -1), (pb.YMax, 1)):
+            pts = [V(x, y_face, floor_top), V(x, y_face + out * gusset_len, floor_top),
+                   V(x, y_face, floor_top + gusset_len), V(x, y_face, floor_top)]
+            gussets.append(Part.Face(Part.makePolygon(pts)).extrude(V(5, 0, 0)))
 
-    shape = floor.fuse([servo_upright, idler_upright])
+    shape = floor.fuse([servo_upright, idler_upright] + gussets)
     cuts = plate_cuts + [bearing_housing_cut(V(0, brg_out, 0), (0, -1, 0))]
     # pan horn on the underside (arm along Y)
     cuts.append(placed(horn_pocket(s["horn"], through=YOKE_FLOOR_T + 2), V(0, 0, floor_bot), (0, 1, 0), (0, 0, -1)))
@@ -279,17 +276,6 @@ def base(yoke_floor_bot):
     return shape.cut(Part.makeCompound(cuts)).removeSplitter(), env
 
 
-def carrier_assembly():
-    """Carrier (and FeatherWing envelope) placed so the wing IC is at the origin."""
-    shape = mc.carrier()
-    ox, oy = mc.feather_origin()
-    wing = Part.makeBox(mc.FEATHER_W, mc.FEATHER_H, 1.6, V(ox, oy, mc.THICKNESS + mc.BOSS_H))
-    t = V(-PLATE_W / 2, -PLATE_H / 2, -CARRIER_IC_Z)
-    shape.translate(t)
-    wing.translate(t)
-    return shape, wing
-
-
 # --- clearance -------------------------------------------------------------
 def rotated(shapes, axis, deg):
     out = []
@@ -318,50 +304,59 @@ def sweep_check(moving, fixed, axis, label, step=15, tol=1e-3):
 
 def build(variants=(16.0, 21.0), check=True):
     os.makedirs(PARTS_DIR, exist_ok=True)
-    carrier, wing = carrier_assembly()
-    cradle = roll_cradle()
-    yoke, tilt_servo, yoke_brg, yoke_floor_bot = pan_yoke()
+    tube, cap_p, cap_n = sensor_body()
+    board_refs = sb.boards()
+    roll_parts = [tube, cap_p, cap_n] + [b for _, b in board_refs]
+    roll_r = max_radius(roll_parts, (1, 0, 0))
+    ring_in_y = roll_r + SWEEP_MARGIN
+    print(f"roll sweep radius {roll_r:.1f} -> ring inner {ring_in_y:.1f}", flush=True)
+
+    rings = {tab: tilt_ring(mg90s(tab), ring_in_y) for tab in variants}
+    tilt_r = max(max_radius(roll_parts + list(r), (0, 1, 0)) for r in rings.values())
+    tilt_clear_r = tilt_r + 3.0
+    print(f"tilt sweep radius {tilt_r:.1f} -> yoke floor at z={-tilt_clear_r:.1f}", flush=True)
+
+    yoke, tilt_servo, yoke_brg, yoke_floor_bot = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
     base_shape, pan_servo = base(yoke_floor_bot)
 
-    rings = {}
-    for tab in variants:
-        rings[tab] = tilt_ring(mg90s(tab))
-
-    for name, shp in [("roll_cradle", cradle), ("pan_yoke", yoke), ("base", base_shape)] + \
-            [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]:
+    printed = [("sensor_tube", tube), ("sensor_cap_drive", cap_p), ("sensor_cap_idler", cap_n),
+               ("pan_yoke", yoke), ("base", base_shape)] + \
+              [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]
+    for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
               f"{[round(v, 1) for v in (shp.BoundBox.XLength, shp.BoundBox.YLength, shp.BoundBox.ZLength)]}",
               flush=True)
         assert shp.isValid() and len(shp.Solids) == 1, name
 
     if check:
-        roll_parts = [carrier, wing, cradle]
         for tab, (ring, roll_servo, ring_brg) in rings.items():
             print(f"-- MG90S tab {tab} mm", flush=True)
-            sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: cradle+carrier vs ring")
-            tilt_parts = roll_parts + [ring, roll_servo, ring_brg]
-            sweep_check(tilt_parts, [yoke, tilt_servo, yoke_brg], (0, 1, 0), "tilt: ring assembly vs yoke")
+            sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: sensor box vs ring")
+            sweep_check(roll_parts + [ring, roll_servo, ring_brg], [yoke, tilt_servo, yoke_brg], (0, 1, 0),
+                        "tilt: ring assembly vs yoke")
         pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]])
         sweep_check(pan_parts, [base_shape, pan_servo], (0, 0, 1), "pan: yoke assembly vs base")
 
     doc = App.newDocument("imu_gimbal_rig")
-    def add(name, shp, label):
+
+    def add(name, shp, label, visible=True):
         o = doc.addObject("Part::Feature", name)
         o.Shape = shp
         o.Label = label
-        o.Visibility = True
+        o.Visibility = visible
         return o
 
-    add("Carrier", carrier, "Sensor carrier (swirly + Feather bosses)")
-    add("FeatherWing", wing, "REF FeatherWing #4569 envelope")
-    add("RollCradle", cradle, "Roll cradle")
+    add("SensorTube", tube, "Sensor box tube (4 swirly faces)")
+    add("SensorCapDrive", cap_p, "Sensor box cap +X (MG90S horn)")
+    add("SensorCapIdler", cap_n, "Sensor box cap -X (idler axle)")
+    for name, shp in board_refs:
+        add(f"REF_{name}", shp, f"REF {name}")
     t0 = variants[0]
     add("TiltRing", rings[t0][0], f"Tilt ring (MG90S tab {t0} mm)")
     add("RollServo", rings[t0][1], f"REF MG90S roll servo (tab {t0} mm)")
     add("RollBearing", rings[t0][2], "REF 623ZZ roll idler")
     for t in variants[1:]:
-        o = add(f"TiltRingTab{int(t)}", rings[t][0], f"Tilt ring (MG90S tab {t} mm) ALT")
-        o.Visibility = False
+        add(f"TiltRingTab{int(t)}", rings[t][0], f"Tilt ring (MG90S tab {t} mm) ALT", visible=False)
     add("PanYoke", yoke, "Pan yoke")
     add("TiltServo", tilt_servo, "REF standard servo, tilt (MG995 / DS3240)")
     add("TiltBearing", yoke_brg, "REF 623ZZ tilt idler")
@@ -372,12 +367,10 @@ def build(variants=(16.0, 21.0), check=True):
     doc.saveAs(path)
     print("wrote", path, flush=True)
 
-    for name, shp in [("roll_cradle", cradle), ("pan_yoke", yoke), ("base", base_shape)] + \
-            [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]:
+    for name, shp in printed:
         p = os.path.join(PARTS_DIR, name)
         shp.exportStep(p + ".step")
-        mesh = Mesh.Mesh(shp.tessellate(0.05))
-        mesh.write(p + ".stl")
+        Mesh.Mesh(shp.tessellate(0.05)).write(p + ".stl")
     print("wrote parts to", PARTS_DIR, flush=True)
 
 

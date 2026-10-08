@@ -28,9 +28,13 @@ def plate(rows, cols, thickness=THICKNESS, slot_width=SLOT_WIDTH):
     base = Part.makeBox(w, h, thickness)
     vertical = [e for e in base.Edges if e.BoundBox.ZLength > thickness - 0.01]
     base = base.makeFillet(sg.CORNER_RADIUS, vertical)
+    cutters = slot_cutters(rows, cols, -1.0, thickness + 2.0, slot_width)
+    return base.cut(Part.makeCompound(cutters)).removeSplitter()
 
+
+def slot_cutters(rows, cols, z0, depth, slot_width=SLOT_WIDTH):
+    """Slot/hole solids in grid-local coords (origin at grid lower-left, z from z0)."""
     r = slot_width / 2
-    z0, depth = -1.0, thickness + 2.0
     cutters = []
     for (ax, ay), (bx, by) in sg.slots(rows, cols):
         cutters.append(Part.makeCylinder(r, depth, App.Vector(ax, ay, z0)))
@@ -43,7 +47,7 @@ def plate(rows, cols, thickness=THICKNESS, slot_width=SLOT_WIDTH):
             cutters.append(Part.makeBox(x1 - x0, slot_width, depth, App.Vector(x0, ay - r, z0)))
         else:
             cutters.append(Part.makeBox(slot_width, y1 - y0, depth, App.Vector(ax - r, y0, z0)))
-    return base.cut(Part.makeCompound(cutters)).removeSplitter()
+    return cutters
 
 
 if __name__ == "__main__":
