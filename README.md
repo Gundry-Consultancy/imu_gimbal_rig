@@ -30,6 +30,7 @@ and one FeatherWing.
 | `make_swirly_plate.py` | FreeCAD generator for a printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `preview_swirly.py` | Matplotlib 2D preview |
 | `make_carrier.py` | Swirly plate + Feather bosses; the #4569 wing's ISM330DHCX sits over plate centre (env `CARRIER_BOSS_H`) |
+| `make_gimbal.py` | Full pan/tilt/roll layout, per-part STEP/STL in `parts/`, 360° clearance sweeps per axis, `imu-gimbal-assembly.FCStd` |
 | `docs/mechanical_data.md` | Board hole/IC positions for the PR 839 sensors, Feather spec, servo dimensions |
 
 Generate with FreeCAD 1.1 (`C:\dev\software\FreeCAD\bin\freecadcmd.exe`):
@@ -37,6 +38,34 @@ Generate with FreeCAD 1.1 (`C:\dev\software\FreeCAD\bin\freecadcmd.exe`):
 ```
 freecadcmd -c "exec(open('make_swirly_plate.py').read(), {'__file__': 'make_swirly_plate.py', '__name__': '__main__'})"
 ```
+
+## Gimbal layout (v1)
+
+The origin is the sensor IC: roll = X, tilt = Y, pan = Z. Every axis passes
+through the IC, and `make_gimbal.py` sweeps each moving stage through 360°
+against the stage outside it and reports any collision.
+
+| Part | Holds | Servo | Idler |
+|---|---|---|---|
+| `roll_cradle` | the carrier, held by 4 x M2.5 through the centre-cell round holes | MG90S horn pocket on the +X wall | M3 axle boss on -X |
+| `tilt_ring_mg90s_tab16` / `_tab21` | roll servo + 623 bearing | MG90S (16 mm and 21 mm tab heights, since the published figures disagree; hole slots cover 27.5–28 mm) | standard-servo horn on the +Y bar, M3 axle on -Y |
+| `pan_yoke` | tilt servo + 623 bearing | MG995 or DS3240 on +Y (near-identical mount geometry) | pan horn pocket underneath |
+| `base` | pan servo | DS3240 (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
+
+The overall envelope is about 114 x 121 x 149 mm, and the printed parts weigh
+about 185 g solid.
+
+**Hardware:**
+- 2 x 623ZZ bearings (3 x 10 x 4)
+- 2 x M3 x 12 axle screws + washers
+- 4 x M2.5 for carrier to cradle
+- self-tapping screws for the horn arms and servo tabs
+
+**Assumptions to check:**
+- Horn arm sizes are guesses. MG90S: 36 x 7 x 2 deep. 25T: 46 x 8.5 x 2.5 deep.
+- Horn hub heights are guesses: 2.5 / 3.5 mm.
+- QT boards on the swirly plate need about 10 mm standoffs to bring their IC to
+  the same height as the FeatherWing (on 9 mm bosses).
 
 ## Notes
 
