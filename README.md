@@ -163,6 +163,34 @@ trimmed to 14 mm, and `striker_cam_spline` has the 21T socket moulded in
 **Assembly order, either way:** screw the horn to the part, press it onto the
 spline, then drive the centre screw through the part's access hole.
 
+## Print list
+
+![assembly](docs/assembly-3d.png)
+
+All the STLs are in `parts/`. PETG is recommended throughout because it takes
+the taps well. **The striker bar must be PETG.**
+
+| STL | Qty | Orientation on the bed | Notes |
+|---|---|---|---|
+| `stack_bottom_deck` | 1 | flat | |
+| `stack_middle_deck` | 1 | flat, end walls up | carries the roll horn and axle |
+| `stack_top_deck` | 1 | flat, roof up | the roof flare is 45°, so no supports |
+| `stack_spine_lower` | 1 | on its 36 x 7 face | |
+| `stack_spine_upper` | 1 | on its 36 x 7 face | |
+| `tilt_ring_mg90s` | 1 | flat | **needs supports** under the side bars and bearing plate (they sit ~13–18 mm up) |
+| `pan_yoke` | 1 | on its side (32 mm face down) | the U profile lies flat, so no supports |
+| `base` | 1 | on its closed end wall | open box, no supports |
+| `striker_stand` | 1 | front plate (the face that bolts to the yoke) down | rails and webs stand vertical |
+| `striker_bar` | 1 | **on its side** (profile flat, 16 mm tall) | **PETG**; layers follow the bend |
+| `striker_pawl` | 1 | flat on a 4.4 mm face | pin: 1.75 mm filament |
+| `striker_cam` **or** `striker_cam_spline` | 1 | flat; for `_spline`, counterbored face down, hub up | `striker_cam` takes a stock horn trimmed to 14 mm |
+| `horn_mg90s_printed` | 0–1 | arm down, socket up | only if the stock MG90S horn doesn't fit (roll) |
+| `horn_ds3240_printed` | 0–2 | arm down, socket up | only if the stock DS3240 horns don't fit (tilt + pan) |
+
+The core set is 12 parts, plus the optional printed horns. Print the horns
+with fine layers (0.1–0.12 mm). Print one horn first and test it on a servo
+before printing the others (`SPLINE_CLEAR`).
+
 ## Files
 
 | File | What |
