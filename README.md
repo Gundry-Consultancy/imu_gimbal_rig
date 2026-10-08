@@ -137,11 +137,31 @@ printed parts weigh about 340 g solid.
 - striker: 4 x M3 x 10 (stand to yoke), 2 x M3 x 8 (pad), and a 1.75 mm filament pin
 - self-tapping screws for the horn arms and servo tabs
 
-**Still to measure** (yellow cells in `docs/servo-measurements.png`):
-- **Horn arm sizes** (guesses): MG90S 36 x 7 x 2 deep, DS3240 46 x 8.5 x 2.5
-  deep. The cam takes a double-arm horn trimmed to 14 mm.
-- **Horn hub heights** (guesses): 2.5 / 3.5 mm.
-- **DS3240 tab hole diameter.**
+**Horns: two options, one set of parts.** Every horn pocket works either way.
+
+1. **Stock horn.** The pockets are sized for an assumed double-arm horn:
+   - MG90S: 36 x 7 mm, 2 mm deep, hub 2.5 mm
+   - DS3240: 46 x 8.5 mm, 2.5 mm deep, hub 3.5 mm
+
+   Each pocket has self-tap pilots 3.5 mm in from the arm tips. If your horn's
+   holes land elsewhere, drill your own.
+2. **Printed horn.** Print `horn_mg90s_printed` (21T) or `horn_ds3240_printed`
+   (25T).
+   - **Fit:** shaped to fill its pocket exactly, with a moulded spline socket,
+     so it fits whatever the stock horns turn out to be.
+   - **Screws:** an M2 (MG90S) or M3 (DS3240) screw through the hub into the
+     spline, and M2 / M2.5 arm screws into the pocket pilots.
+   - **Printing:** print arm-down, socket up, with fine layers (0.1–0.12 mm,
+     a 0.25 mm nozzle if you have one).
+   - **Fit tuning:** `SPLINE_CLEAR` in `make_gimbal.py` (0.1 mm radial)
+     loosens or tightens the spline.
+
+**The striker cam** has both versions too: `striker_cam` takes a stock horn
+trimmed to 14 mm, and `striker_cam_spline` has the 21T socket moulded in
+(M2 screw from the front, counterbored).
+
+**Assembly order, either way:** screw the horn to the part, press it onto the
+spline, then drive the centre screw through the part's access hole.
 
 ## Files
 

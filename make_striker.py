@@ -303,6 +303,21 @@ def cam_solid(y_cam, z_cam, h_tot, horn):
     return cam.cut(Part.makeCompound(cuts)).removeSplitter()
 
 
+def cam_spline_solid(y_cam, z_cam, h_tot, spline_x, servo, mg):
+    """Cam with the MG90S spline moulded in (no horn): a hub reaches toward the servo,
+    an M2 centre screw goes in from the +X face (counterbored)."""
+    sp = servo["spline"]
+    base = cam_solid(y_cam, z_cam, h_tot, Part.makeBox(0.1, 0.1, 0.1, V(1000, 0, 0)))
+    base = base.fuse(Part.makeCylinder(2.6, CAM_T, V(-CAM_T / 2, y_cam, z_cam), V(1, 0, 0)))   # refill the horn hole
+    hub_face = spline_x - sp["engage"]                    # stays clear of the servo case top
+    hub = Part.makeCylinder(4.8, -CAM_T / 2 - hub_face + 0.01, V(hub_face, y_cam, z_cam), V(1, 0, 0))
+    shape = base.fuse(hub)
+    sock = mg.placed(mg.spline_socket(sp, sp["engage"] + 0.01), V(hub_face, y_cam, z_cam), (0, 1, 0), (1, 0, 0))
+    screw = Part.makeCylinder(sp["screw"] / 2, CAM_T + 20, V(hub_face - 1, y_cam, z_cam), V(1, 0, 0))
+    head = Part.makeCylinder(sp["head"] / 2, 1.8, V(CAM_T / 2 - 1.8, y_cam, z_cam), V(1, 0, 0))
+    return shape.cut(Part.makeCompound([sock, screw, head])).removeSplitter()
+
+
 # --- assembly ------------------------------------------------------------------
 def build(g, mg):
     """g: dict with ring_out_y, upright_out_y, roof_z, upright_half_x. mg: the make_gimbal module."""
@@ -351,6 +366,7 @@ def build(g, mg):
     horn = mg.placed(mg.horn_pocket(dict(len=14.0, width=6.0, depth=2.0, hub=CAM_HUB, centre=5.0), through=CAM_T + 2),
                      V(-CAM_T / 2, y_cam, z_cam), (0, 1, 0), (-1, 0, 0))
     cam = cam_solid(y_cam, z_cam, h_tot, horn)
+    cam_spline = cam_spline_solid(y_cam, z_cam, h_tot, spline_x, servo, mg)
 
     s_origin, s_x, s_z = V(spline_x, y_cam, z_cam), (0, 1, 0), (1, 0, 0)
     servo_env = mg.placed(mg.servo_envelope(servo), s_origin, s_x, s_z)
@@ -395,6 +411,7 @@ def build(g, mg):
         pawl_rest=pawl_solid(bar, hover),
         pawl_park=pawl_solid(bar, park),
         cam=cam,
+        cam_spline=cam_spline,
         stand=stand,
         servo=servo_env,
     )

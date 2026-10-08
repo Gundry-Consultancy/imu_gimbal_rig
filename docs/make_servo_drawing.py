@@ -44,7 +44,7 @@ SERVOS = [
         horn=dict(len=46.0, width=8.5, t=2.5, hub=3.5, hub_d=10.0, trimmed=None),
         spline="25T",
         measured=dict(A="40.5", B="54.5", C="20.5", D="46.2", E="28.2", F="3.08", G="14",
-                      H="~9.5", J="48.5–48.6", K="9.5–10"),
+                      H="~9.5", J="48.5–48.6", K="9.5–10", M="OK"),
     ),
 ]
 
@@ -201,7 +201,7 @@ def main():
     fig = plt.figure(figsize=(17, 21))
     fig.suptitle("Servo dimensions  —  imu_gimbal_rig", fontsize=16, weight="bold", y=0.985)
     fig.text(0.5, 0.968, "Shaded = mount geometry depends on it. Design value = what the CAD uses. "
-             "Yellow Measured cells are still to measure (horns P–S).",
+             "Horns P–S are assumed; if a stock horn does not fit, print horn_*_printed (fits the pocket exactly).",
              ha="center", fontsize=10, color="#444")
     outer = fig.add_gridspec(2, 1, hspace=0.16, top=0.93, bottom=0.03, left=0.03, right=0.97)
     for i, s in enumerate(SERVOS):

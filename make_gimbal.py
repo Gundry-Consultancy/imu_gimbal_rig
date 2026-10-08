@@ -50,14 +50,18 @@ MG90S = dict(L=23.0,                               # A 22.7 measured, allow 23
              holes=(27.3, 27.7), hole_across=0.0,  # J 27.5 (+/-0.2 slot), single row
              pilot=1.7, offset=22.7 / 2 - 5.9,     # M 2.0 (M2 self-tap pilot), H 5.9
              spline_r=2.4,                         # N 21T, ~4.8
-             horn=dict(len=36.0, width=7.0, depth=2.0, hub=2.5, centre=6.0))   # P-S not yet measured
+             spline=dict(n=21, d=4.8, tooth=0.3, engage=3.5, screw=2.2, head=4.2),   # M2 centre screw
+             # P-S assumed (stock horn) -- or print horn_mg90s_printed, which fits this pocket exactly
+             horn=dict(len=36.0, width=7.0, depth=2.0, hub=2.5, centre=6.0, pilot=1.6, arm_screw=2.2))
 DS3240 = dict(L=40.5, W=20.5, H=46.2, case_top=4.5,   # A, C, D
               tab_len=54.5, tab_t=3.2,                # B, F (3.08 measured)
               holes=(48.4, 48.8), hole_across=9.75,   # J 48.5-48.6, K 9.5-10
               pilot=2.4, offset=40.5 / 2 - 9.5,       # H ~9.5
               spline_r=3.0,
+              spline=dict(n=25, d=6.0, tooth=0.3, engage=4.0, screw=3.2, head=6.0),   # M3 centre screw
               spline_above_tab=14.0,                  # G measured (D - E - F reads 14.8)
-              horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0))  # P-S not yet measured
+              # P-S assumed (stock horn) -- or print horn_ds3240_printed, which fits this pocket exactly
+              horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0, pilot=2.0, arm_screw=2.7))
 STANDARD = DS3240      # tilt and pan servos (an MG995 would need its own measurements)
 
 
@@ -151,7 +155,53 @@ def horn_pocket(horn, through=12.0):
     arm = box(-horn["len"] / 2, horn["len"] / 2, -horn["width"] / 2, horn["width"] / 2, -horn["depth"], 1)
     hub = Part.makeCylinder(horn["width"] / 2 + 1.5, horn["depth"] + 1, V(0, 0, -horn["depth"]))
     centre = Part.makeCylinder(horn["centre"] / 2, through + 1, V(0, 0, -through))
-    return arm.fuse([hub, centre])
+    cut = arm.fuse([hub, centre])
+    if horn.get("pilot"):
+        # self-tap pilots for the arm screws (match the printed horn; drill your own for a stock horn)
+        for x in (-horn["len"] / 2 + HORN_SCREW_INSET, horn["len"] / 2 - HORN_SCREW_INSET):
+            cut = cut.fuse(Part.makeCylinder(horn["pilot"] / 2, 5.0, V(x, 0, -horn["depth"] - 5.0 + 0.01)))
+    return cut
+
+
+HORN_SCREW_INSET = 3.5      # arm screw centre from the arm tip
+HORN_CLEAR = 0.15           # printed horn clearance in its pocket (per side)
+SPLINE_CLEAR = 0.1          # radial clearance on the printed spline socket; tune to your printer
+
+
+def spline_socket(sp, length):
+    """Internal spline (star polygon, triangular teeth) along +z from z=0, in local coords."""
+    import math
+    n, r_out = sp["n"], sp["d"] / 2 + SPLINE_CLEAR
+    r_in = r_out - sp["tooth"]
+    pts = []
+    for i in range(2 * n):
+        a = math.pi * i / n
+        r = r_out if i % 2 == 0 else r_in
+        pts.append(V(r * math.cos(a), r * math.sin(a), 0))
+    pts.append(pts[0])
+    return Part.Face(Part.makePolygon(pts)).extrude(V(0, 0, length))
+
+
+def printed_horn(servo):
+    """Horn that fits horn_pocket(servo['horn']) exactly, with a moulded spline socket.
+
+    Local frame matches horn_pocket: part face at z=0, arm sunk to z=-depth, servo at +z,
+    spline top at z=hub. Returned arm-down (z from 0) ready to print, socket facing up.
+    """
+    h, sp = servo["horn"], servo["spline"]
+    c = HORN_CLEAR
+    arm = box(-h["len"] / 2 + c, h["len"] / 2 - c, -h["width"] / 2 + c, h["width"] / 2 - c, -h["depth"], 0)
+    top = h["hub"] + sp["engage"]
+    hub = Part.makeCylinder(h["width"] / 2 + 1.5 - c, top + h["depth"], V(0, 0, -h["depth"]))
+    shape = arm.fuse(hub)
+    sock = spline_socket(sp, sp["engage"] + 1)
+    sock.translate(V(0, 0, h["hub"]))
+    cuts = [sock, Part.makeCylinder(sp["screw"] / 2, top + h["depth"] + 2, V(0, 0, -h["depth"] - 1))]
+    for x in (-h["len"] / 2 + HORN_SCREW_INSET, h["len"] / 2 - HORN_SCREW_INSET):
+        cuts.append(Part.makeCylinder(h["arm_screw"] / 2, h["depth"] + 2, V(x, 0, -h["depth"] - 1)))
+    shape = shape.cut(Part.makeCompound(cuts)).removeSplitter()
+    shape.translate(V(0, 0, h["depth"]))
+    return shape
 
 
 def bearing_housing_cut(face_out, axis):
@@ -391,9 +441,11 @@ def build(variants=(MG90S_TAB,), check=True):
                        upright_half_x=YOKE_HALF_X, stand_bolts=STAND_BOLTS), _self_module())
     print("striker", st["info"], flush=True)
 
-    printed = stack_parts + [("pan_yoke", yoke), ("base", base_shape)] + \
+    horns = [("horn_mg90s_printed", printed_horn(MG90S)), ("horn_ds3240_printed", printed_horn(DS3240))]
+    printed = stack_parts + horns + [("pan_yoke", yoke), ("base", base_shape)] + \
               [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_rest"]),
-               ("striker_cam", st["cam"]), ("striker_stand", st["stand"])] + \
+               ("striker_cam", st["cam"]), ("striker_cam_spline", st["cam_spline"]),
+               ("striker_stand", st["stand"])] + \
               [("tilt_ring_mg90s" if len(rings) == 1 else f"tilt_ring_mg90s_tab{t:g}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
