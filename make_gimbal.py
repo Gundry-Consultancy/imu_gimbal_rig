@@ -1,14 +1,14 @@
-"""Pan / tilt / roll gimbal around the sensor box. Run with freecadcmd.
+"""Pan / tilt / roll gimbal around the sensor stack. Run with freecadcmd.
 
     freecadcmd -c "exec(open('make_gimbal.py').read(), {'__file__': 'make_gimbal.py', '__name__': '__main__'})"
 
-Global frame: origin is the sensor IC (axis intersection), +X is the roll axis,
+Global frame: origin is the axis intersection (middle of the sensor stack), +X is the roll axis,
 +Y is the tilt axis, +Z is the pan axis (up).
 
 Parts (exported to parts/):
-  sensor_tube, sensor_cap_drive, sensor_cap_idler
-                                the sensor box (see make_sensor_box.py); MG90S horn on the +X cap,
-                                623 idler axle on the -X cap
+  stack_deck0_cradle, stack_deck1, stack_deck2_roof
+                                the sensor stack (see make_sensor_stack.py); deck 0's end walls carry
+                                the MG90S horn (+X) and the 623 idler axle (-X)
   tilt_ring_mg90s_tab16 / tab21 holds the roll MG90S (two tab-height variants) and the -X 623 bearing;
                                 standard-servo horn on +Y bar, idler axle on -Y
   pan_yoke                      holds the standard tilt servo (+Y) and the -Y 623 bearing;
@@ -29,7 +29,7 @@ import Mesh
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import make_sensor_box as sb  # noqa: E402
+import make_sensor_stack as ss  # noqa: E402
 
 V = App.Vector
 PARTS_DIR = os.path.join(HERE, "parts")
@@ -61,7 +61,7 @@ AXLE_BOSS_D = 4.8   # touches inner race only
 M3_PILOT = 2.8
 
 # --- layout ------------------------------------------------------------------
-BODY_HALF_X = sb.TUBE_L / 2 + sb.CAP_T      # outer face of each end cap
+BODY_HALF_X = ss.body_half_x()             # outer face of each cradle end wall
 SWEEP_MARGIN = 4.0                          # beyond the measured sweep radius (cable slop)
 RING_BAR_T = 6.0
 RING_BAR_HALF_Z = 7.0
@@ -172,13 +172,21 @@ def max_radius(shapes, axis):
 
 
 def sensor_body():
-    tube, cap_p, cap_n = sb.sensor_box()
-    horn = placed(horn_pocket(MG90S["horn"], through=sb.CAP_T + 2), V(BODY_HALF_X, 0, 0), (0, 0, 1), (1, 0, 0))
-    cap_p = cap_p.cut(horn).removeSplitter()
+    """Stack parts and board envelopes, moved so the roll axis is the X axis."""
+    za = ss.axis_z()
+    up = V(0, 0, za)
+    horn = placed(horn_pocket(MG90S["horn"], through=ss.WALL_T + 2), V(BODY_HALF_X, 0, 0), (0, 1, 0), (1, 0, 0))
     boss_len = RING_GAP + (RING_BRG_PLATE_T - BRG_W)
-    boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + sb.CAP_T - 0.5)
-    cap_n = cap_n.fuse(boss).cut(pilot).removeSplitter()
-    return tube, cap_p, cap_n
+    boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + ss.WALL_T - 0.5)
+    for c in (horn, boss, pilot):
+        c.translate(up)
+    parts = [("stack_deck0_cradle", ss.cradle_deck(horn, boss, pilot)),
+             ("stack_deck1", ss.middle_deck()),
+             ("stack_deck2_roof", ss.top_deck())]
+    refs = ss.boards()
+    for _, shp in parts + refs:
+        shp.translate(-up)
+    return parts, refs
 
 
 def tilt_ring(servo, ring_in_y):
@@ -304,9 +312,8 @@ def sweep_check(moving, fixed, axis, label, step=15, tol=1e-3):
 
 def build(variants=(16.0, 21.0), check=True):
     os.makedirs(PARTS_DIR, exist_ok=True)
-    tube, cap_p, cap_n = sensor_body()
-    board_refs = sb.boards()
-    roll_parts = [tube, cap_p, cap_n] + [b for _, b in board_refs]
+    stack_parts, board_refs = sensor_body()
+    roll_parts = [shp for _, shp in stack_parts] + [b for _, b in board_refs]
     roll_r = max_radius(roll_parts, (1, 0, 0))
     ring_in_y = roll_r + SWEEP_MARGIN
     print(f"roll sweep radius {roll_r:.1f} -> ring inner {ring_in_y:.1f}", flush=True)
@@ -319,8 +326,7 @@ def build(variants=(16.0, 21.0), check=True):
     yoke, tilt_servo, yoke_brg, yoke_floor_bot = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
     base_shape, pan_servo = base(yoke_floor_bot)
 
-    printed = [("sensor_tube", tube), ("sensor_cap_drive", cap_p), ("sensor_cap_idler", cap_n),
-               ("pan_yoke", yoke), ("base", base_shape)] + \
+    printed = stack_parts + [("pan_yoke", yoke), ("base", base_shape)] + \
               [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
@@ -331,7 +337,7 @@ def build(variants=(16.0, 21.0), check=True):
     if check:
         for tab, (ring, roll_servo, ring_brg) in rings.items():
             print(f"-- MG90S tab {tab} mm", flush=True)
-            sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: sensor box vs ring")
+            sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: sensor stack vs ring")
             sweep_check(roll_parts + [ring, roll_servo, ring_brg], [yoke, tilt_servo, yoke_brg], (0, 1, 0),
                         "tilt: ring assembly vs yoke")
         pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]])
@@ -346,9 +352,10 @@ def build(variants=(16.0, 21.0), check=True):
         o.Visibility = visible
         return o
 
-    add("SensorTube", tube, "Sensor box tube (4 swirly faces)")
-    add("SensorCapDrive", cap_p, "Sensor box cap +X (MG90S horn)")
-    add("SensorCapIdler", cap_n, "Sensor box cap -X (idler axle)")
+    labels = {"stack_deck0_cradle": "Deck 0 / roll cradle (6 QT)", "stack_deck1": "Deck 1 (FeatherWing + 3 QT)",
+              "stack_deck2_roof": "Deck 2 (6 QT) + roof"}
+    for name, shp in stack_parts:
+        add(name.title().replace("_", ""), shp, labels[name])
     for name, shp in board_refs:
         add(f"REF_{name}", shp, f"REF {name}")
     t0 = variants[0]

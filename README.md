@@ -12,9 +12,10 @@ and one FeatherWing.
 
 ## Requirements
 
-- Every sensor is mounted at the same time, on swirly-grid plates
-  ([tannewt/swirly-grid](https://github.com/tannewt/swirly-grid)) that form a
-  box. A swirly-grid PCB also bolts on through the matching slots.
+- Every sensor is mounted at the same time, on stacked layers of swirly-grid
+  plates ([tannewt/swirly-grid](https://github.com/tannewt/swirly-grid)). The
+  sides stay open, with a small roof in the middle of the top to whack on. A
+  swirly-grid PCB also bolts on through the matching slots.
 - STEMMA QT sized breakouts, plus a Feather-sized place for one FeatherWing.
 - Hobby servos: MG90S (both published tab heights), DS3240, MG995.
 - Aim for ±180° on every axis. In practice the servo travel limits it
@@ -23,52 +24,54 @@ and one FeatherWing.
   acceleration is accepted.
 - Tap / click striker (cam + sprung bar): deferred.
 
-## Sensor box
+## Sensor stack
 
-`make_sensor_box.py` builds a square tube, 81.3 x 55.9 x 55.9 mm. Each of its
-four long faces is a 3 x 5 cell swirly grid, and an end cap closes each end.
+`make_sensor_stack.py` builds three horizontal decks, each a 4 x 4 cell swirly
+grid (61 mm square) with an 8 mm border for the corner pillars. The sides are
+open.
 
-| Face | Boards |
+| Deck | Boards |
 |---|---|
-| top (+Z) | FeatherWing on 10 mm standoffs (clears header pins) + 1 portrait QT |
-| bottom, left, right | 4 portrait QT boards each, edge to edge |
+| 0, bottom | 6 portrait QT boards. Also the roll cradle: its end walls carry the MG90S horn (+X) and the idler axle (-X). |
+| 1, middle | FeatherWing on 10 mm standoffs (clears header pins) + 3 portrait QT boards |
+| 2, top | 6 portrait QT boards around a central post with a flared **roof** (24 mm square) for the striker to whack |
 
-That is room for **13 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + the wing.
+That is room for **15 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + the wing.
 
-- **Orientation:** boards sit portrait so their QT connectors face the long
-  edges of each face, where the cables have room.
+- **Board layout:** boards sit portrait in two rows per deck, using the QT
+  connector on the outer edge, so cables leave through the open �Y sides.
 - **Fixing:** each board bolts through its top-edge hole pair (every QT board
-  has it), with M2.5 screws, 3 mm spacers and nuts inside the tube. Mount the
-  boards before fitting the caps.
-- **Caps:** each screws to corner posts with 4 x M2.5. The +X cap takes the
-  MG90S roll horn and the -X cap has the idler axle.
-- **Cables:** both caps have cable windows. The tube has room for a QT Py and
-  a TCA9548A mux, which you'll need because of I²C address clashes
-  (several LIS3MDL/LSM303/LSM9DS1 parts share addresses).
+  has it), with M2.5 screws, 3 mm spacers and nuts.
+- **Pillars:** they are printed onto the top of the deck below, and the roof
+  post's flare is 45�, so every deck prints upright without supports.
+- **Clamping:** an M3 threaded rod through each corner pillar clamps the stack
+  (nuts under deck 0 and on top of deck 2).
+- **Mux:** you'll need a TCA9548A, because of I�C address clashes (several
+  LIS3MDL/LSM303/LSM9DS1 parts share addresses). It fits in a spare board spot.
 
 `pack_faces.py` checks the board placements against the slot geometry.
 
 ## Gimbal (`make_gimbal.py`)
 
-Axes: roll = X (the tube axis), tilt = Y, pan = Z, all crossing at the box
-centre. The script measures the sweep radius of each stage to size the next
+Axes: roll = X, tilt = Y, pan = Z, all crossing at the middle of the
+stack. The script measures the sweep radius of each stage to size the next
 one out, then rotates each stage through 360° against its neighbour and
 reports any collision.
 
 | Part | Holds | Servo | Idler |
 |---|---|---|---|
-| `sensor_tube`, `sensor_cap_drive`, `sensor_cap_idler` | all the boards | MG90S horn pocket on the +X cap | M3 axle boss on the -X cap |
+| `stack_deck0_cradle`, `stack_deck1`, `stack_deck2_roof` | all the boards | MG90S horn pocket on deck 0's +X wall | M3 axle boss on the -X wall |
 | `tilt_ring_mg90s_tab16` / `_tab21` | roll servo + 623 bearing | MG90S (16 mm and 21 mm tab heights, since the published figures disagree; hole slots cover 27.5–28 mm) | standard-servo horn on the +Y bar, M3 axle on -Y |
 | `pan_yoke` | tilt servo + 623 bearing, outer gussets | MG995 or DS3240 on +Y | pan horn pocket underneath |
 | `base` | pan servo | DS3240 (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
 
-The overall envelope is about 128 x 191 x 180 mm, and the printed parts weigh
-about 290 g solid.
+The overall envelope is about 124 x 198 x 164 mm, and the printed parts weigh
+about 300 g solid.
 
 **Hardware:**
 - 2 x 623ZZ bearings (3 x 10 x 4)
 - 2 x M3 x 12 axle screws + washers
-- 8 x M2.5 x 8 for the caps
+- 4 x M3 threaded rod (~45 mm) + 8 nuts for the stack
 - 2 x M2.5 + nut + 3 mm spacer per QT board
 - 4 x M2.5 + 10 mm standoffs for the FeatherWing
 - self-tapping screws for the horn arms and servo tabs
@@ -82,8 +85,8 @@ about 290 g solid.
 | File | What |
 | --- | --- |
 | `swirly_grid.py` | Pure-Python swirly-grid geometry + hole-pattern fit checker (`python swirly_grid.py 2 4`) |
-| `pack_faces.py` | Portrait QT board packing along a swirly face |
-| `make_sensor_box.py` | Sensor box tube + caps, board layout, reference board envelopes |
+| `pack_faces.py` | Portrait QT board placement options on a swirly grid |
+| `make_sensor_stack.py` | Sensor stack decks, pillars, roof, board layout, reference board envelopes |
 | `make_gimbal.py` | Full gimbal, per-part STEP/STL in `parts/`, clearance sweeps, `imu-gimbal-assembly.FCStd` |
 | `make_swirly_plate.py` | Flat printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `make_carrier.py` | Older standalone flat plate with Feather bosses (not used by the gimbal) |
