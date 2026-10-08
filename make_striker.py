@@ -5,12 +5,16 @@ Imported by make_gimbal.py (the stand bolts to the pan yoke's idler upright).
 
 How it works
 - The bar is printed in its *free* shape, which already has the preload in it.
-  Screw the base pad down and the hammer presses on the roof with F0 (2 N).
-  Bend it up to fit the cam.
+  Screw the base pad down and the hammer would press on the roof with F0 (2 N).
+  Bend it up to fit the cam. The cam's base circle then holds the pawl so the
+  hammer HOVERS just off the roof at rest, even with the servo unpowered.
 - The servo turns the cam forward (+X rotation). The pawl hanging under the
-  bar rides up a ramp, lifting the hammer by T, then drops off a cliff and the
-  hammer hits the roof. At rest the hammer sits on the roof and the pawl is
-  just clear of the cam.
+  bar rides up a ramp, lifting the hammer by T, then drops off a cliff. The
+  pawl lands on the base circle, the hammer's momentum flexes the long arm
+  on through the hover gap into the roof (piano-style let-off), and it
+  springs back to hover.
+- The pawl leans PAWL_LEAN degrees into its stop. Under load at rest it is
+  pushed further into the stop, not folded away.
 - Two lobes fit within the 270-degree travel:
       park at ~120 deg -> sweep forward through 125 and 245: double tap
       park at ~240 deg -> step past 245: single tap
@@ -52,7 +56,8 @@ PAWL_T = 4.4          # along x, between lugs
 PAWL_W = 5.0          # along the bar
 LUG_T = 3.0
 PIN_D = 1.9           # 1.75 mm filament pin
-PAWL_GAP = 1.0        # pawl tip above the cam base circle with the hammer on the roof
+HOVER = 0.5           # tip lift at rest (pawl on the cam base circle); the hammer face clears the roof by ~0.8 mm
+PAWL_LEAN = 8.0       # deg, pawl tip leans toward its stop (-Y) so load at rest holds it there
 
 CAM_R0 = 8.0
 CAM_T = 6.0
@@ -124,7 +129,11 @@ class Bar:
 
     def parked_force(self):
         """Cam force that lifts the tip TRAVEL above the installed (roof) height."""
-        target = self.inst[-1][2] + TRAVEL
+        return self.lift_force(TRAVEL)
+
+    def lift_force(self, dz):
+        """Cam force that lifts the tip dz above the installed (roof) height."""
+        target = self.inst[-1][2] + dz
         # scan up from zero (tip height is not monotonic once the bar rolls over), then bisect
         lo, hi = 0.0, 0.5
         while self.loaded(p_cam=hi)[-1][2] < target:
@@ -192,6 +201,27 @@ def _local_cyl_x(st, u, w, r, x0, x1):
     return Part.makeCylinder(r, x1 - x0, p, V(1, 0, 0))
 
 
+def _local_poly(st, uw, x0, x1):
+    _, y, z, h = st
+    pts = [V(0, y + u * math.cos(h) - w * math.sin(h), z + u * math.sin(h) + w * math.cos(h)) for u, w in uw]
+    f = Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(x1 - x0, 0, 0))
+    f.translate(V(x0, 0, 0))
+    return f
+
+
+def _pawl_contact(st, t):
+    """World (y, z) of the leaned pawl's lowest point at a bar station."""
+    th = math.radians(PAWL_LEAN)
+    r = PAWL_W / 2
+    w_pin = -t / 2 - LUG_DROP
+    cu = -(PAWL_LEN - r) * math.sin(th)
+    cw = w_pin - (PAWL_LEN - r) * math.cos(th)
+    _, y, z, h = st
+    yc = y + cu * math.cos(h) - cw * math.sin(h)
+    zc = z + cu * math.sin(h) + cw * math.cos(h) - r
+    return yc, zc
+
+
 def bar_solid(bar, pts, z_roof):
     t = bar.t
     body = _profile_face(pts, t).extrude(V(BAR_B, 0, 0))
@@ -211,7 +241,17 @@ def bar_solid(bar, pts, z_roof):
     gap = PAWL_T / 2 + 0.4
     for x0, x1 in ((-gap - LUG_T, -gap), (gap, gap + LUG_T)):
         parts.append(_local_box(st, -3.5, 3.5, w_pin - 3.0, -t / 2 + 0.01, x0, x1))
-    parts.append(_local_box(st, -PAWL_W / 2 - 3.5, -PAWL_W / 2 - 0.4, w_pin - 3.0, -t / 2 + 0.01, -gap - 0.01, gap + 0.01))
+    # stop: its face matches the pawl's -u side at PAWL_LEAN (0.3 mm clearance)
+    th = math.radians(PAWL_LEAN)
+    r = PAWL_W / 2
+
+    def u_face(w):                     # w relative to the pin
+        d = (r * math.sin(th) - w) / math.cos(th)
+        return -r * math.cos(th) - d * math.sin(th) - 0.3
+    w_top, w_bot = LUG_DROP + 0.01, -3.0
+    u_back = -r - 4.5
+    stop = [(u_face(w_top), w_pin + w_top), (u_face(w_bot), w_pin + w_bot), (u_back, w_pin + w_bot), (u_back, w_pin + w_top)]
+    parts.append(_local_poly(st, stop, -gap - 0.01, gap + 0.01))
     shape = body.fuse(parts)
     pin = _local_cyl_x(st, 0, w_pin, PIN_D / 2, -gap - LUG_T - 1, gap + LUG_T + 1)
     # pad screw pilots (M3 self-tap from below)
@@ -227,7 +267,11 @@ def pawl_solid(bar, pts):
     r = PAWL_W / 2
     body = _local_box(st, -r, r, w_pin - PAWL_LEN + r, w_pin, x0, x1)
     body = body.fuse([_local_cyl_x(st, 0, w_pin, r, x0, x1), _local_cyl_x(st, 0, w_pin - PAWL_LEN + r, r, x0, x1)])
-    return body.cut(_local_cyl_x(st, 0, w_pin, PIN_D / 2 + 0.05, x0 - 1, x1 + 1)).removeSplitter()
+    body = body.cut(_local_cyl_x(st, 0, w_pin, PIN_D / 2 + 0.05, x0 - 1, x1 + 1)).removeSplitter()
+    _, y, z, h = st
+    pin = V(0, y - w_pin * math.sin(h), z + w_pin * math.cos(h))
+    body.rotate(pin, V(1, 0, 0), -PAWL_LEAN)   # tip toward -Y, into the stop
+    return body
 
 
 def cam_radius(s, h_tot):
@@ -267,7 +311,7 @@ def build(g, mg):
     servo = mg.mg90s(16.0)
 
     # cam behind the stand plate, pad behind the cam
-    r_guess = CAM_R0 + PAWL_GAP + 8.0
+    r_guess = CAM_R0 + 9.0
     y_cam = y_uo - STAND_T - 1.0 - r_guess
     y_pad_front = y_cam - r_guess - 2.0
     y_c = y_pad_front - PAD_LEN
@@ -276,27 +320,33 @@ def build(g, mg):
 
     free = bar.free()
     inst = bar.inst
+    p_hover = bar.lift_force(HOVER)
+    hover = bar.loaded(p_cam=p_hover)
     p_park = bar.parked_force()
     park = bar.loaded(p_cam=p_park)
     s_f = bar.s_curve + bar.a
-    f_inst, f_park = bar.station(inst, s_f), bar.station(park, s_f)
-    h_follow = f_park[2] - f_inst[2]
-    h_tot = h_follow + PAWL_GAP
+    # cam centre straight under the leaned pawl's contact point at rest (hover)
+    y_cc, z_cc = _pawl_contact(bar.station(hover, s_f), t)
+    y_cam, z_cam = y_cc, z_cc - CAM_R0
+    y_pk, z_pk = _pawl_contact(bar.station(park, s_f), t)
+    h_tot = math.hypot(y_pk - y_cam, z_pk - z_cam) - CAM_R0
     lift_tip = park[-1][2] - inst[-1][2]
     max_strain = p_park * (bar.a + bar.R) * t / 2 / bar.EI
     preload_strain = F0 * (bar.L + bar.R) * t / 2 / bar.EI
     torque = p_park * h_tot / math.radians(LOBES[0][1] - LOBES[0][0])
     free_drop = inst[-1][2] - free[-1][2]
+    # let-off: energy released by the drop vs. the stiffness of the arm beyond the follower
+    k_tip = 0.5 * F0 / TRAVEL
+    energy = (F0 + (F0 + k_tip * TRAVEL)) / 2 * (TRAVEL - HOVER)
+    k_arm = 3 * bar.EI / (bar.L - bar.a) ** 3
+    overshoot = math.sqrt(2 * energy / k_arm)
     info = dict(t=t, b=BAR_B, L=round(bar.L, 1), R=R_CURVE, a=round(bar.a, 1), free_tip_below_roof=round(free_drop, 1),
-                park_cam_force_N=round(p_park, 1), tip_lift=round(lift_tip, 1), cam_lift=round(h_tot, 2),
-                cam_rmax=round(CAM_R0 + h_tot, 1), strain_park_pct=round(100 * max_strain, 2),
-                strain_preload_pct=round(100 * preload_strain, 2), cam_torque_kgcm=round(torque / 98.1, 2))
+                hover=HOVER, rest_cam_force_N=round(p_hover, 1), park_cam_force_N=round(p_park, 1),
+                tip_lift=round(lift_tip, 1), cam_lift=round(h_tot, 2), cam_rmax=round(CAM_R0 + h_tot, 1),
+                strain_park_pct=round(100 * max_strain, 2), strain_preload_pct=round(100 * preload_strain, 2),
+                cam_torque_kgcm=round(torque / 98.1, 2), drop_energy_mJ=round(energy, 1),
+                let_off_overshoot_mm=round(overshoot, 1))
 
-    # pawl and cam heights (installed state: pawl tip PAWL_GAP above the base circle)
-    w_pin = -t / 2 - LUG_DROP
-    _, yf, zf, hf = f_inst
-    pin_z = zf + w_pin * math.cos(hf)
-    z_cam = pin_z - PAWL_LEN - PAWL_GAP - CAM_R0
     spline_x = -CAM_T / 2 - CAM_HUB
     horn = mg.placed(mg.horn_pocket(dict(len=14.0, width=6.0, depth=2.0, hub=CAM_HUB, centre=5.0), through=CAM_T + 2),
                      V(-CAM_T / 2, y_cam, z_cam), (0, 1, 0), (-1, 0, 0))
@@ -340,9 +390,9 @@ def build(g, mg):
     return dict(
         info=info,
         bar_free=bar_solid(bar, free, z_roof),
-        bar_inst=bar_solid(bar, inst, z_roof),
+        bar_rest=bar_solid(bar, hover, z_roof),
         bar_park=bar_solid(bar, park, z_roof),
-        pawl_inst=pawl_solid(bar, inst),
+        pawl_rest=pawl_solid(bar, hover),
         pawl_park=pawl_solid(bar, park),
         cam=cam,
         stand=stand,

@@ -349,9 +349,10 @@ def striker_limits(roll_parts, rings, striker_parked, striker_inst, yoke_parts, 
                 ok = deg
             limits.append(sign * ok)
         print(f"striker fitted, MG90S tab {tab}: tilt clear from {limits[1]} to +{limits[0]} deg", flush=True)
-    inst = Part.makeCompound(striker_inst)
-    v = inst.common(roll_c).Volume
-    print(f"installed hammer vs stack overlap {v:.3f} mm^3 (should be ~0: hammer just touches the roof)", flush=True)
+    rest = Part.makeCompound(striker_inst)
+    v = rest.common(roll_c).Volume
+    gap = rest.distToShape(roll_c)[0]
+    print(f"hammer at rest: overlap {v:.3f} mm^3, gap to stack {gap:.2f} mm", flush=True)
     v = parked.common(Part.makeCompound(yoke_parts)).Volume
     print(f"striker vs yoke overlap {v:.3f} mm^3", flush=True)
 
@@ -378,7 +379,7 @@ def build(variants=(16.0, 21.0), check=True):
     print("striker", st["info"], flush=True)
 
     printed = stack_parts + [("pan_yoke", yoke), ("base", base_shape)] + \
-              [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_inst"]),
+              [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_rest"]),
                ("striker_cam", st["cam"]), ("striker_stand", st["stand"])] + \
               [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
@@ -396,7 +397,7 @@ def build(variants=(16.0, 21.0), check=True):
         striker_parked = [st["bar_park"], st["pawl_park"], st["cam"], st["stand"], st["servo"]]
         pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]]) + striker_parked
         sweep_check(pan_parts, [base_shape, pan_servo], (0, 0, 1), "pan: yoke + striker vs base")
-        striker_limits(roll_parts, rings, striker_parked, [st["bar_inst"], st["pawl_inst"]],
+        striker_limits(roll_parts, rings, striker_parked, [st["bar_rest"], st["pawl_rest"]],
                        [yoke, tilt_servo, yoke_brg])
 
     doc = App.newDocument("imu_gimbal_rig")
@@ -427,8 +428,8 @@ def build(variants=(16.0, 21.0), check=True):
     add("Base", base_shape, "Base")
     add("PanServo", pan_servo, "REF standard servo, pan (DS3240 270)")
     add("StrikerStand", st["stand"], "Striker stand")
-    add("StrikerBar", st["bar_inst"], "Striker bar (installed, hammer on roof)")
-    add("StrikerPawl", st["pawl_inst"], "Striker pawl")
+    add("StrikerBar", st["bar_rest"], "Striker bar (at rest, hammer hovering)")
+    add("StrikerPawl", st["pawl_rest"], "Striker pawl")
     add("StrikerCam", st["cam"], "Striker cam")
     add("StrikerServo", st["servo"], "REF MG90S-size 270 deg servo (cam)")
     add("StrikerBarParked", st["bar_park"], "REF striker bar parked (lifted)", visible=False)

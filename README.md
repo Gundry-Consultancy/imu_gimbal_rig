@@ -59,18 +59,26 @@ A PETG flat bar with a single hairpin curve at its base. A 270° servo lifts it
 with a cam, and the bar drops onto the roof.
 
 - **Preload is printed in.** The bar is printed in its free shape, with the
-  hammer tip about 30 mm below the roof. Screw the pad down from underside
-  the stand (2 x M3) and the hammer presses on the roof with **2 N**. Bend the
-  bar up to fit the cam.
+  hammer tip about 30 mm below the roof. Screw the pad down from under the
+  stand (2 x M3). Without the cam, the hammer would press on the roof with
+  **2 N**. Bend the bar up to fit the cam.
+- **Hovers at rest:** the cam's base circle holds the pawl, so the hammer sits
+  **~0.8 mm above the roof** (`HOVER` sets this), even with the servo
+  unpowered. The cam carries about 10 N at rest. The pawl leans 8° into its
+  stop, so that load holds it there.
 - **Lift and release:** the cam lifts a pinned pawl under the bar. At the
-  cliff, the pawl drops off and the hammer falls 15 mm onto the roof.
+  cliff, the pawl drops off and lands on the base circle. The hammer's
+  momentum flexes the arm on through the hover gap into the roof, then it
+  springs back to hover (piano-style let-off). The drop releases about 36 mJ.
+  The arm could overshoot by about 14 mm, far more than the gap, so the tap
+  always lands.
 - **Reset:** a 270° servo has to turn back to re-arm. On the reverse stroke the
   pawl folds away from the cliffs, then gravity drops it back against its stop.
 - **Two lobes in the 270° travel:**
 
   | Action | Servo |
   |---|---|
-  | rest, hammer on roof | 0° |
+  | rest, hammer hovering | 0° |
   | park for a double tap | ~120° |
   | park for a single tap | ~240° |
   | double tap | sweep forward through 125° and 245°. The tap spacing is set by sweep speed: about 0.2 s at full MG90S speed, longer if you sweep slower. |
@@ -80,9 +88,11 @@ with a cam, and the bar drops onto the roof.
   **Keep the hammer parked whenever the gimbal moves.**
 - **Computed for E = 2 GPa:**
   - bar 16 x 3.0 mm, 116 mm reach, 12 mm hairpin
-  - cam force when parked 14 N, cam lift 7.6 mm
-  - servo torque about 0.6 kg·cm
+  - cam force 10 N at rest and 14 N when parked, cam lift 4.2 mm
+  - servo torque about 0.35 kg·cm
   - peak strain 1.3 % when parked
+- **Creep:** PETG relaxes under the constant rest load. The hover gap holds
+  (the cam fixes the shape), but strike energy may fall a little over weeks.
 - **Tuning:** force goes as thickness cubed. `BAR_T`, `F0` and `TRAVEL` are at
   the top of `make_striker.py`. A wedge shim under the pad also trims the
   preload.
