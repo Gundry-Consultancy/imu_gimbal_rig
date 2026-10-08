@@ -6,9 +6,11 @@ Global frame: origin is the axis intersection (middle of the sensor stack), +X i
 +Y is the tilt axis, +Z is the pan axis (up).
 
 Parts (exported to parts/):
-  stack_deck0_cradle, stack_deck1, stack_deck2_roof
-                                the sensor stack (see make_sensor_stack.py); deck 0's end walls carry
-                                the MG90S horn (+X) and the 623 idler axle (-X)
+  stack_middle_deck, stack_top_deck, stack_bottom_deck, stack_spine_upper, stack_spine_lower
+                                the sensor stack (see make_sensor_stack.py); only the middle deck's
+                                end walls carry the MG90S horn (+X) and the 623 idler axle (-X)
+  striker_bar, striker_pawl, striker_cam, striker_stand
+                                cam-driven tap striker on the yoke (see make_striker.py)
   tilt_ring_mg90s_tab16 / tab21 holds the roll MG90S (two tab-height variants) and the -X 623 bearing;
                                 standard-servo horn on +Y bar, idler axle on -Y
   pan_yoke                      holds the standard tilt servo (+Y) and the -Y 623 bearing;
@@ -74,6 +76,7 @@ YOKE_GAP = 1.5
 YOKE_FLOOR_T = 6.0
 
 SERVO_PLATE_T = 5.0
+STAND_BOLTS = ((-11.0, 6.0), (11.0, 6.0), (-11.0, -12.0), (11.0, -12.0))   # striker stand on the idler upright (x, z)
 
 
 # --- helpers ---------------------------------------------------------------
@@ -180,9 +183,12 @@ def sensor_body():
     boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + ss.WALL_T - 0.5)
     for c in (horn, boss, pilot):
         c.translate(up)
-    parts = [("stack_deck0_cradle", ss.cradle_deck(horn, boss, pilot)),
-             ("stack_deck1", ss.middle_deck()),
-             ("stack_deck2_roof", ss.top_deck())]
+    upper, lower = ss.spines()
+    parts = [("stack_middle_deck", ss.middle_deck(horn, boss, pilot)),
+             ("stack_top_deck", ss.top_deck()),
+             ("stack_bottom_deck", ss.bottom_deck()),
+             ("stack_spine_upper", upper),
+             ("stack_spine_lower", lower)]
     refs = ss.boards()
     for _, shp in parts + refs:
         shp.translate(-up)
@@ -252,12 +258,14 @@ def pan_yoke(ring_out_y, tilt_clear_r):
 
     shape = floor.fuse([servo_upright, idler_upright] + gussets)
     cuts = plate_cuts + [bearing_housing_cut(V(0, brg_out, 0), (0, -1, 0))]
+    # M3 pilots for the striker stand on the idler upright's outer face
+    cuts += [Part.makeCylinder(M3_PILOT / 2, 8, V(x, brg_out - 1, z), V(0, 1, 0)) for x, z in STAND_BOLTS]
     # pan horn on the underside (arm along Y)
     cuts.append(placed(horn_pocket(s["horn"], through=YOKE_FLOOR_T + 2), V(0, 0, floor_bot), (0, 1, 0), (0, 0, -1)))
     shape = shape.cut(Part.makeCompound(cuts)).removeSplitter()
     servo_env = placed(servo_envelope(s), t_origin, t_x, t_z)
     brg_env = bearing_envelope(V(0, brg_out, 0), (0, -1, 0))
-    return shape, servo_env, brg_env, floor_bot
+    return shape, servo_env, brg_env, floor_bot, brg_out
 
 
 def base(yoke_floor_bot):
@@ -310,6 +318,44 @@ def sweep_check(moving, fixed, axis, label, step=15, tol=1e-3):
     return hits
 
 
+def _self_module():
+    import types
+    m = types.ModuleType("make_gimbal_self")
+    m.__dict__.update(globals())
+    return m
+
+
+def striker_limits(roll_parts, rings, striker_parked, striker_inst, yoke_parts, tol=1e-3):
+    """Report gimbal range with the striker fitted (hammer parked) and check the installed hammer."""
+    parked = Part.makeCompound(striker_parked)
+    roll_c = Part.makeCompound(roll_parts)
+    hits = []
+    for deg in range(-90, 91, 10):
+        m = roll_c.copy()
+        m.rotate(V(0, 0, 0), V(1, 0, 0), deg)
+        if m.common(parked).Volume > tol:
+            hits.append(deg)
+    print(f"striker vs roll +/-90 (hammer parked): {'OK' if not hits else 'COLLIDES at ' + str(hits)}", flush=True)
+    for tab, r in rings.items():
+        tilt_c = Part.makeCompound(roll_parts + list(r))
+        limits = []
+        for sign in (1, -1):
+            ok = 0
+            for deg in range(5, 181, 5):
+                m = tilt_c.copy()
+                m.rotate(V(0, 0, 0), V(0, 1, 0), sign * deg)
+                if m.common(parked).Volume > tol:
+                    break
+                ok = deg
+            limits.append(sign * ok)
+        print(f"striker fitted, MG90S tab {tab}: tilt clear from {limits[1]} to +{limits[0]} deg", flush=True)
+    inst = Part.makeCompound(striker_inst)
+    v = inst.common(roll_c).Volume
+    print(f"installed hammer vs stack overlap {v:.3f} mm^3 (should be ~0: hammer just touches the roof)", flush=True)
+    v = parked.common(Part.makeCompound(yoke_parts)).Volume
+    print(f"striker vs yoke overlap {v:.3f} mm^3", flush=True)
+
+
 def build(variants=(16.0, 21.0), check=True):
     os.makedirs(PARTS_DIR, exist_ok=True)
     stack_parts, board_refs = sensor_body()
@@ -323,10 +369,17 @@ def build(variants=(16.0, 21.0), check=True):
     tilt_clear_r = tilt_r + 3.0
     print(f"tilt sweep radius {tilt_r:.1f} -> yoke floor at z={-tilt_clear_r:.1f}", flush=True)
 
-    yoke, tilt_servo, yoke_brg, yoke_floor_bot = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
+    yoke, tilt_servo, yoke_brg, yoke_floor_bot, upright_out_y = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
     base_shape, pan_servo = base(yoke_floor_bot)
 
+    import make_striker as mk
+    st = mk.build(dict(upright_out_y=upright_out_y, roof_z=ss.roof_top() - ss.axis_z(),
+                       upright_half_x=YOKE_HALF_X, stand_bolts=STAND_BOLTS), _self_module())
+    print("striker", st["info"], flush=True)
+
     printed = stack_parts + [("pan_yoke", yoke), ("base", base_shape)] + \
+              [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_inst"]),
+               ("striker_cam", st["cam"]), ("striker_stand", st["stand"])] + \
               [(f"tilt_ring_mg90s_tab{int(t)}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
@@ -340,8 +393,11 @@ def build(variants=(16.0, 21.0), check=True):
             sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: sensor stack vs ring")
             sweep_check(roll_parts + [ring, roll_servo, ring_brg], [yoke, tilt_servo, yoke_brg], (0, 1, 0),
                         "tilt: ring assembly vs yoke")
-        pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]])
-        sweep_check(pan_parts, [base_shape, pan_servo], (0, 0, 1), "pan: yoke assembly vs base")
+        striker_parked = [st["bar_park"], st["pawl_park"], st["cam"], st["stand"], st["servo"]]
+        pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]]) + striker_parked
+        sweep_check(pan_parts, [base_shape, pan_servo], (0, 0, 1), "pan: yoke + striker vs base")
+        striker_limits(roll_parts, rings, striker_parked, [st["bar_inst"], st["pawl_inst"]],
+                       [yoke, tilt_servo, yoke_brg])
 
     doc = App.newDocument("imu_gimbal_rig")
 
@@ -352,8 +408,9 @@ def build(variants=(16.0, 21.0), check=True):
         o.Visibility = visible
         return o
 
-    labels = {"stack_deck0_cradle": "Deck 0 / roll cradle (6 QT)", "stack_deck1": "Deck 1 (FeatherWing + 3 QT)",
-              "stack_deck2_roof": "Deck 2 (6 QT) + roof"}
+    labels = {"stack_middle_deck": "Middle deck + roll walls (wing + 5 QT)", "stack_top_deck": "Top deck (8 QT) + roof",
+              "stack_bottom_deck": "Bottom deck (8 QT)", "stack_spine_upper": "Upper spine",
+              "stack_spine_lower": "Lower spine"}
     for name, shp in stack_parts:
         add(name.title().replace("_", ""), shp, labels[name])
     for name, shp in board_refs:
@@ -369,6 +426,13 @@ def build(variants=(16.0, 21.0), check=True):
     add("TiltBearing", yoke_brg, "REF 623ZZ tilt idler")
     add("Base", base_shape, "Base")
     add("PanServo", pan_servo, "REF standard servo, pan (DS3240 270)")
+    add("StrikerStand", st["stand"], "Striker stand")
+    add("StrikerBar", st["bar_inst"], "Striker bar (installed, hammer on roof)")
+    add("StrikerPawl", st["pawl_inst"], "Striker pawl")
+    add("StrikerCam", st["cam"], "Striker cam")
+    add("StrikerServo", st["servo"], "REF MG90S-size 270 deg servo (cam)")
+    add("StrikerBarParked", st["bar_park"], "REF striker bar parked (lifted)", visible=False)
+    add("StrikerBarFree", st["bar_free"], "REF striker bar as printed (free shape)", visible=False)
     doc.recompute()
     path = os.path.join(HERE, "imu-gimbal-assembly.FCStd")
     doc.saveAs(path)

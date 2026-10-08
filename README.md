@@ -1,8 +1,8 @@
 # IMU gimbal rig
 
 Pan / tilt / roll rig that carries a whole set of Adafruit IMU, accelerometer
-and magnetometer breakouts (3/6/9 DoF) at once, with a later add-on striker
-for tap and double-tap detection testing.
+and magnetometer breakouts (3/6/9 DoF) at once, with a cam-driven striker for
+tap and double-tap detection testing.
 
 Target sensors: the drivers added in
 [adafruit/Adafruit_Wippersnapper_Arduino#839](https://github.com/adafruit/Adafruit_Wippersnapper_Arduino/pull/839)
@@ -16,68 +16,115 @@ and one FeatherWing.
   plates ([tannewt/swirly-grid](https://github.com/tannewt/swirly-grid)). The
   sides stay open, with a small roof in the middle of the top to whack on. A
   swirly-grid PCB also bolts on through the matching slots.
-- STEMMA QT sized breakouts, plus a Feather-sized place for one FeatherWing.
-- Hobby servos: MG90S (both published tab heights), DS3240, MG995.
-- Aim for ±180° on every axis. In practice the servo travel limits it
-  (180° or 270° servos).
+- Only the centre plate connects to the roll servo and axle. The other plates
+  hang off it on central standoffs in line with the roof, not at the edges.
+- STEMMA QT sized breakouts, 4 across, plus a Feather-sized place for one
+  FeatherWing.
+- Hobby servos: MG90S (both published tab heights), DS3240, MG995, and a
+  270° servo for the striker cam.
+- Aim for ±180° on every axis. In practice the servo travel limits it.
 - Sensors do not need to sit on the rotation centre. Off-axis
   acceleration is accepted.
-- Tap / click striker (cam + sprung bar): deferred.
 
-## Sensor stack
+## Sensor stack (`make_sensor_stack.py`)
 
-`make_sensor_stack.py` builds three horizontal decks, each a 4 x 4 cell swirly
-grid (61 mm square) with an 8 mm border for the corner pillars. The sides are
-open.
+Each deck is a 5 x 4 cell swirly grid (76.2 x 61 mm) with a 3 mm border. The
+sides are open.
 
 | Deck | Boards |
 |---|---|
-| 0, bottom | 6 portrait QT boards. Also the roll cradle: its end walls carry the MG90S horn (+X) and the idler axle (-X). |
-| 1, middle | FeatherWing on 10 mm standoffs (clears header pins) + 3 portrait QT boards |
-| 2, top | 6 portrait QT boards around a central post with a flared **roof** (24 mm square) for the striker to whack |
+| top | 8 portrait QT around a central post with a flared **roof** (24 mm square) for the striker |
+| middle | FeatherWing on 10 mm standoffs (clears header pins) + 1 QT, and 4 QT. Its +X / -X end walls carry the MG90S roll horn and the idler axle. This is the only deck connected to the gimbal. |
+| bottom | 8 portrait QT |
 
-That is room for **15 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + the wing.
+That is room for **21 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + the wing.
 
-- **Board layout:** boards sit portrait in two rows per deck, using the QT
-  connector on the outer edge, so cables leave through the open �Y sides.
+- **Board layout:** boards sit portrait, 4 across, in two rows per deck. Each
+  uses the QT connector on its outer edge, so cables leave through the open
+  ±Y sides.
 - **Fixing:** each board bolts through its top-edge hole pair (every QT board
   has it), with M2.5 screws, 3 mm spacers and nuts.
-- **Pillars:** they are printed onto the top of the deck below, and the roof
-  post's flare is 45�, so every deck prints upright without supports.
-- **Clamping:** an M3 threaded rod through each corner pillar clamps the stack
-  (nuts under deck 0 and on top of deck 2).
-- **Mux:** you'll need a TCA9548A, because of I�C address clashes (several
+- **Spines:** a solid strip runs between the two rows on every deck. The upper
+  and lower spines (36 x 7 mm standoffs) sit on it, directly under the roof.
+- **Clamping:** two M3 bolts at x = ±14 run through the whole stack, with the
+  heads on top, just outside the roof, and nuts underneath.
+- **Mux:** you'll need a TCA9548A, because of I²C address clashes (several
   LIS3MDL/LSM303/LSM9DS1 parts share addresses). It fits in a spare board spot.
 
 `pack_faces.py` checks the board placements against the slot geometry.
 
+## Tap striker (`make_striker.py`)
+
+A PETG flat bar with a single hairpin curve at its base. A 270° servo lifts it
+with a cam, and the bar drops onto the roof.
+
+- **Preload is printed in.** The bar is printed in its free shape, with the
+  hammer tip about 30 mm below the roof. Screw the pad down from underside
+  the stand (2 x M3) and the hammer presses on the roof with **2 N**. Bend the
+  bar up to fit the cam.
+- **Lift and release:** the cam lifts a pinned pawl under the bar. At the
+  cliff, the pawl drops off and the hammer falls 15 mm onto the roof.
+- **Reset:** a 270° servo has to turn back to re-arm. On the reverse stroke the
+  pawl folds away from the cliffs, then gravity drops it back against its stop.
+- **Two lobes in the 270° travel:**
+
+  | Action | Servo |
+  |---|---|
+  | rest, hammer on roof | 0° |
+  | park for a double tap | ~120° |
+  | park for a single tap | ~240° |
+  | double tap | sweep forward through 125° and 245°. The tap spacing is set by sweep speed: about 0.2 s at full MG90S speed, longer if you sweep slower. |
+  | single tap | from 240°, step past 245° |
+  | re-arm | back to 0°, then forward to a park angle |
+
+  **Keep the hammer parked whenever the gimbal moves.**
+- **Computed for E = 2 GPa:**
+  - bar 16 x 3.0 mm, 116 mm reach, 12 mm hairpin
+  - cam force when parked 14 N, cam lift 7.6 mm
+  - servo torque about 0.6 kg·cm
+  - peak strain 1.3 % when parked
+- **Tuning:** force goes as thickness cubed. `BAR_T`, `F0` and `TRAVEL` are at
+  the top of `make_striker.py`. A wedge shim under the pad also trims the
+  preload.
+- **Mounting:** the stand bolts to the outer face of the pan yoke's idler
+  upright (4 x M3) and covers the tilt bearing.
+- **Range with the striker fitted (hammer parked):** roll ±90° is clear, and
+  tilt is limited to **±55°**.
+- **Printing:** print `striker_bar` on its side, so the layers follow the bend.
+  The pawl pin is a length of 1.75 mm filament.
+
+![striker section](docs/striker-section.png)
+
 ## Gimbal (`make_gimbal.py`)
 
-Axes: roll = X, tilt = Y, pan = Z, all crossing at the middle of the
-stack. The script measures the sweep radius of each stage to size the next
-one out, then rotates each stage through 360° against its neighbour and
-reports any collision.
+Axes: roll = X, tilt = Y, pan = Z, all crossing in the stack. The script
+measures the sweep radius of each stage to size the next one out. It then
+rotates each stage through 360° against its neighbour, checks the striker
+against the roll and tilt ranges, and reports any collision.
 
 | Part | Holds | Servo | Idler |
 |---|---|---|---|
-| `stack_deck0_cradle`, `stack_deck1`, `stack_deck2_roof` | all the boards | MG90S horn pocket on deck 0's +X wall | M3 axle boss on the -X wall |
+| `stack_*` | all the boards | MG90S horn pocket on the middle deck's +X wall | M3 axle boss on the -X wall |
 | `tilt_ring_mg90s_tab16` / `_tab21` | roll servo + 623 bearing | MG90S (16 mm and 21 mm tab heights, since the published figures disagree; hole slots cover 27.5–28 mm) | standard-servo horn on the +Y bar, M3 axle on -Y |
-| `pan_yoke` | tilt servo + 623 bearing, outer gussets | MG995 or DS3240 on +Y | pan horn pocket underneath |
+| `pan_yoke` | tilt servo + 623 bearing, outer gussets, striker stand pilots | MG995 or DS3240 on +Y | pan horn pocket underneath |
 | `base` | pan servo | DS3240 (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
+| `striker_*` | bar, pawl, cam, stand | MG90S-size 270° servo (16 mm tab) | |
 
-The overall envelope is about 124 x 198 x 164 mm, and the printed parts weigh
-about 300 g solid.
+The overall envelope is about 129 x 233 x 182 mm (with the striker), and the
+printed parts weigh about 340 g solid.
 
 **Hardware:**
 - 2 x 623ZZ bearings (3 x 10 x 4)
 - 2 x M3 x 12 axle screws + washers
-- 4 x M3 threaded rod (~45 mm) + 8 nuts for the stack
+- 2 x M3 x 50 bolts + nuts through the stack
 - 2 x M2.5 + nut + 3 mm spacer per QT board
 - 4 x M2.5 + 10 mm standoffs for the FeatherWing
+- striker: 4 x M3 x 10 (stand to yoke), 2 x M3 x 8 (pad), and a 1.75 mm filament pin
 - self-tapping screws for the horn arms and servo tabs
 
 **Assumptions to check:**
 - Horn arm sizes are guesses. MG90S: 36 x 7 x 2 deep. 25T: 46 x 8.5 x 2.5 deep.
+  The cam takes a double-arm horn trimmed to 14 mm.
 - Horn hub heights are guesses: 2.5 / 3.5 mm.
 
 ## Files
@@ -86,8 +133,9 @@ about 300 g solid.
 | --- | --- |
 | `swirly_grid.py` | Pure-Python swirly-grid geometry + hole-pattern fit checker (`python swirly_grid.py 2 4`) |
 | `pack_faces.py` | Portrait QT board placement options on a swirly grid |
-| `make_sensor_stack.py` | Sensor stack decks, pillars, roof, board layout, reference board envelopes |
-| `make_gimbal.py` | Full gimbal, per-part STEP/STL in `parts/`, clearance sweeps, `imu-gimbal-assembly.FCStd` |
+| `make_sensor_stack.py` | Sensor stack decks, spines, roof, board layout, reference board envelopes |
+| `make_striker.py` | Striker bar spring model (free / installed / parked shapes), pawl, cam, stand |
+| `make_gimbal.py` | Full gimbal + striker, per-part STEP/STL in `parts/`, clearance checks, `imu-gimbal-assembly.FCStd` |
 | `make_swirly_plate.py` | Flat printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `make_carrier.py` | Older standalone flat plate with Feather bosses (not used by the gimbal) |
 | `preview_swirly.py` | Matplotlib 2D preview |
