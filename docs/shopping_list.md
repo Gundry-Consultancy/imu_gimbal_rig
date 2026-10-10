@@ -18,32 +18,46 @@ will not.
 
 ## Amazon UK basket for next-day delivery (checked 2026-10-10, Bristol BS16)
 
-All four were showing "fastest delivery Tomorrow, 11 Oct". Next-day
-delivery may need Prime or a delivery fee, and there is a same-day order
-cutoff.
+The board fixings are left out: steel screws for now, then nylon or brass
+on slower shipping (see below). These items were showing "fastest delivery
+Tomorrow, 11 Oct". Next-day delivery may need Prime or a delivery fee, and
+there is a same-day order cutoff.
 
 | Qty | Item | Price | Covers |
 |---|---|---|---|
-| 1 | [400 pcs M2.5 nylon standoff kit (B0GTK7HQDJ)](https://www.amazon.co.uk/dp/B0GTK7HQDJ) | £7.99 | M2.5 x 12 nylon screws for the boards: 20, plus 16 of its M2.5 x 20 cut to 12 mm (36 for 9 boards). Also has 10 mm F-F standoffs and M2.5 x 8 for the wing. Buy 2 to avoid cutting. Plain bags of M2.5 x 12 nylon only ship 24–30 Oct. You already have other nylon M2.5 parts. |
 | 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (stand, DS3240 tabs, printed-horn centres), x 12 (axles), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
 | 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts. These also work for `tall_top` (46.1 mm grip): use one washer and the nut still fully engages |
 | (opt.) | [M2 x 10 pan head, 304 stainless, 100-pack (B0FJFY1CGX)](https://www.amazon.co.uk/dp/B0FJFY1CGX) | £5.29 | centre screws for a printed MG90S horn / `striker_cam_spline` only. Stock horns use the servo's own screw |
 
-That's about **£20** (or about £25 with the M2 screws).
-
-**How the kit changes the board fixings:**
-- Use M2.5 x 12 screws instead of x 10.
-- Make the 3 mm spacer from three 1 mm nylon washers, or one nut plus one
-  washer.
-- Under the middle deck, snip the screw tips flush with the nut using side
-  cutters. Uncut, they reach to within ~0.5 mm of the bottom deck's board
-  screws.
-- Mount the FeatherWing on the kit's 10 mm F-F standoffs with M2.5 x 8
-  screws, top and bottom.
+That's about **£12** (or about £18 with the M2 screws).
 
 **What's not truly non-magnetic:** the stack bolts and axle screws above are
 304 stainless, which is only weakly magnetic. Swap them for brass later if
-the magnetometers show it. Brass M3 x 50 wasn't available next-day.
+the magnetometers show it.
+
+## Sensor-board fixings: slow shipping (nylon or brass)
+
+You're using steel screws for now. Expect the magnetometers to read a
+hard-iron offset until these are swapped, and redo the mag calibration after
+the swap.
+
+| Need | Item | Notes |
+|---|---|---|
+| 36 | M2.5 x 12 pan head screw, nylon or brass | 2 per QT board, for 9 boards; more if you fill extra spots |
+| 36 | M2.5 nut, nylon or brass | under each deck |
+| 36 | M2.5 x 3 mm spacer (or 3 x 1 mm washers each) | under each board |
+| 4 | M2.5 x 10 F-F standoff, nylon or brass | FeatherWing (clears the header pins) |
+| 8 | M2.5 x 6–8 screw, nylon or brass | FeatherWing standoffs, top and bottom |
+
+**Tidier alternative:** M2.5 **3 + 6 mm brass male-female standoffs** (36),
+plus M2.5 x 6 screws and nuts. The male end goes through the deck slot with a
+nut underneath, and the board screws into the top. That replaces the spacers
+and the long screws. A ~300-piece M2.5 nylon standoff kit plus a bag of
+M2.5 x 12 nylon screws also covers the whole table.
+
+**If using M2.5 x 12:** under the middle deck, snip the screw tips flush with
+the nut. Uncut, they reach to within ~0.5 mm of the bottom deck's board
+screws.
 
 ## Full itemised list
 
