@@ -128,14 +128,62 @@ low, put a washer under its tabs.
 The overall envelope is about 132 x 236 x 192 mm (with the striker), and the
 printed parts weigh about 340 g solid.
 
-**Hardware:**
-- 2 x 623ZZ bearings (3 x 10 x 4)
-- 2 x M3 x 12 axle screws + washers
-- 2 x M3 x 50 bolts + nuts through the stack
-- 2 x M2.5 + nut + 3 mm spacer per QT board
-- 4 x M2.5 + 10 mm standoffs for the FeatherWing
-- striker: 4 x M3 x 10 (stand to yoke), 2 x M3 x 8 (pad), and a 1.75 mm filament pin
-- self-tapping screws for the horn arms and servo tabs
+### Fixings
+
+Lengths come from the plate thicknesses in the model. Self-tap means a
+machine or self-tapping screw cut straight into the printed pilot hole.
+
+**Near the sensors, use non-magnetic fixings** (nylon, brass, or at least A2
+stainless). Steel within a few cm of a magnetometer shows up as hard- and
+soft-iron error.
+
+| Where | Fixing | Qty | Notes |
+|---|---|---|---|
+| **Sensor stack** | M3 x 50 bolt (tall_top: M3 x 55) | 2 | top deck through both spines to the bottom deck at x = ±14; **brass or nylon preferred** |
+| | M3 nut + 2 washers | 2 + 4 | nuts under the bottom deck, heads on top just outside the roof |
+| **QT boards** | M2.5 x 10 screw + nut + 3 mm spacer | 2 per board | top-edge hole pair; **nylon**. 9 boards in PR 839 = 18 sets (capacity 21 boards = 42) |
+| **FeatherWing** | M2.5 x 10 standoff (F-F) + 2 x M2.5 x 6 screws + nut | 4 | nylon; 10 mm clears male headers |
+| **Roll axis** | MG90S horn: supplied centre screw + 2 x M2 x 6 self-tap (arm) | 1 set | middle deck +X wall |
+| | 623ZZ bearing + M3 x 12 button head + washer | 1 | tilt ring -X end, screw into the middle deck's -X axle boss |
+| | MG90S tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | tilt ring servo plate (1.7 mm pilots) |
+| **Tilt axis** | DS3240 horn: supplied centre screw + 2 x M2.5 x 8 self-tap (arm) | 1 set | tilt ring +Y bar |
+| | 623ZZ bearing + M3 x 12 button head + washer | 1 | yoke -Y upright, screw into the ring's -Y axle boss |
+| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10 self-tap | 4 | yoke +Y plate (2.4 mm pilots) |
+| **Pan axis** | DS3240 horn: supplied centre screw + 2 x M2.5 x 8 self-tap (arm) | 1 set | yoke underside |
+| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10 self-tap | 4 | base plate |
+| | M3 (or #4 wood) screws, bench | 4 | base foot corners (3.5 mm holes) |
+| **Striker** | M3 x 10 (**not longer**) | 4 | stand to the yoke's idler upright (covers the tilt bearing); a x 12 would poke through toward the tilt ring |
+| | M3 x 14 from below (tall_top: M3 x 22) | 2 | through the pad seat into the bar's pad pilots |
+| | MG90S-size 270° servo tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | stand servo plate |
+| | `striker_cam`: supplied centre screw, horn trimmed to 14 mm and **CA-glued** into the cam | 1 | the cam has no arm pilots |
+| | `striker_cam_spline` instead: M2 x 10 centre screw | 1 | counterbored from the cam's front face |
+| | 1.75 mm filament, ~12 mm | 1 | pawl pin; melt or flare the ends |
+| **Printed horns** (if used) | MG90S: M2 x 8 centre screw; DS3240: M3 x 10 centre screw | per horn | longer than stock, because the printed hub is thicker |
+
+**Bearings:** 2 x 623ZZ (3 x 10 x 4 mm).
+
+**Totals for the main design, with 9 QT boards + wing:**
+- **M3:**
+  - M3 x 50: 2
+  - M3 x 12: 2 (axles)
+  - M3 x 10: 4 (stand)
+  - M3 x 14: 2
+  - M3 nuts: 2
+  - M3 washers: ~6
+  - bench screws: 4
+- **M2.5:**
+  - M2.5 x 10: 18 (QT boards)
+  - M2.5 x 6: 8 (wing)
+  - M2.5 x 8 self-tap: 4 (horn arms)
+  - M2.5 nuts: 22
+  - 3 mm spacers: 18
+  - 10 mm F-F standoffs: 4
+- **M2:**
+  - M2 x 6 self-tap: 2 (MG90S horn arms)
+  - M2 x 8 self-tap: 4 (tabs, if not supplied)
+- **Servo-supplied:** the horn centre screws and tab screws for 2 x MG90S and
+  2 x DS3240.
+- **Other:** 2 x 623ZZ bearings and a little 1.75 mm filament.
 
 **Horns: two options, one set of parts.** Every horn pocket works either way.
 

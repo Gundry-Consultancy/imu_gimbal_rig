@@ -36,8 +36,10 @@ cam servo. The STLs are the same as the main design's.
   there's more room.
 - **Tilt with the striker fitted:** improves from ±55° to **−70° / +65°**.
 
-**Hardware:** the two M3 bolts through the stack need to be about 8 mm
-longer (M3 x 60 instead of x 50).
+**Hardware differences from the main fixings list:**
+- **Stack bolts:** M3 x 55 instead of x 50 (the grip is 46.1 mm).
+- **Striker pad screws:** M3 x 22 instead of x 14 (the pad seat is 17.9 mm
+  thick, up from 10).
 
 ## If you've already printed the main design
 
