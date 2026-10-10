@@ -1,53 +1,50 @@
 # Shopping list
 
-This list is for the main design with 9 QT boards and the FeatherWing. The
-"Order" column rounds up to common pack sizes and adds spares. Lengths for
-the `tall_top` variant are noted where they differ.
+This list is for the main design with 9 QT boards and the FeatherWing, plus
+the `tall_top` lengths where they differ. The "Order" column rounds up to
+common pack sizes and adds spares.
 
 **Material:** fixings marked *non-magnetic* sit near the sensors. Buy nylon or
 brass for those. A2 stainless will do at a pinch, but plain or zinc steel
 will not.
 
-## Easiest route: two kits plus a few singles
+## Already have (2026-10-10)
 
-| Kit | Covers |
-|---|---|
-| **M2.5 nylon standoff / screw / nut kit** (the ~300-piece hex kits with 6–20 mm standoffs) | all board fixings: screws, nuts, 3 mm spacers (or use 2 nuts), 10 mm F-F standoffs |
-| **M2 / M2.5 self-tapping screw assortment** (pan head, 6–10 mm) | horn arm screws and spare servo tab screws |
+- M2 self-tapping, 6 mm and 8 mm: for the MG90S horn arms and the MG90S /
+  cam-servo tabs
+- M2.5 x 8 self-tapping: for the DS3240 horn arms
+- 623ZZ bearings (on order)
+- 1.75 mm filament, for the pawl pin
 
-## Itemised
+## To order
 
-| Item | Material | Need | Order | Used for |
+| Order | Item | Material | Need | Used for |
 |---|---|---|---|---|
-| **M3 x 50** bolt (tall_top: **M3 x 55**) | brass or nylon *(non-magnetic)* | 2 | 4 | clamping the stack through both spines |
-| M3 nut | brass or nylon *(non-magnetic)* | 2 | 10 | stack bolts |
-| M3 washer | nylon *(non-magnetic)* | 6 | 20 | stack bolts and axles |
-| **M3 x 12** button head | A2 stainless | 2 | 10 | roll and tilt axles through the 623 bearings |
-| **M3 x 10** socket or button head | any | 4 | 10 | striker stand to yoke (**not longer**) |
-| **M3 x 14** (or x 16) (tall_top: **M3 x 22**, or x 25) | any | 2 | 10 | striker bar pad, from below |
-| M3 x 16 + nut, or #4 wood screw | any | 4 | 4 | base to bench |
-| **M2.5 x 10** pan head | nylon *(non-magnetic)* | 18 | 25 | QT boards (2 each) |
-| M2.5 x 6 pan head | nylon *(non-magnetic)* | 8 | 10 | FeatherWing standoffs (both ends) |
-| M2.5 nut | nylon *(non-magnetic)* | 18 | 30 | QT board screws |
-| M2.5 x 3 mm spacer | nylon *(non-magnetic)* | 18 | 25 | under each QT board |
-| M2.5 x 10 F-F standoff | nylon *(non-magnetic)* | 4 | 8 | FeatherWing (clears the header pins) |
-| M2.5 x 8 self-tapping | any | 4 | 10 | DS3240 horn arms (tilt, pan) |
-| M2 x 6 self-tapping | any | 2 | 10 | MG90S roll-horn arms |
-| M2 x 8 self-tapping | any | 4 | 10 | MG90S and cam-servo tabs, if the servos come without screws |
-| M2.6 or M3 x 10 self-tapping | any | 8 | 10 | DS3240 tabs, if not supplied (they usually are) |
-| **623ZZ** bearing, 3 x 10 x 4 mm | steel | 2 | 4 (often sold in 10s) | roll and tilt idlers |
-| CA glue (superglue) | - | - | 1 | the trimmed horn into `striker_cam` |
+| 4 | **M3 x 50** bolt | brass or nylon *(non-magnetic)* | 2 | stack bolts, main design |
+| 4 | **M3 x 55** bolt | brass or nylon *(non-magnetic)* | 2 | stack bolts, `tall_top` (skip if not building it) |
+| 10 | M3 nut | brass or nylon *(non-magnetic)* | 2 | stack bolts |
+| 20 | M3 washer | nylon *(non-magnetic)* | 6 | stack bolts, axles |
+| 10 | **M3 x 12** button head | A2 stainless | 2 | roll and tilt axles through the 623s |
+| 20 | **M3 x 10** socket or button head | A2 / any | 14 | striker stand to yoke (4, **not longer**), DS3240 tab screws (8, cut into the 2.4 mm pilots), printed DS3240 horn centres (2) |
+| 10 | **M3 x 16** socket head | any | 6 | striker bar pad from below (2), base to bench (4) |
+| 10 | **M3 x 25** socket head | any | 2 | striker bar pad, `tall_top` only (tip clears the bar by a wide margin) |
+| 10 | M3 nut | steel | 4 | base to bench |
+| 25 | M2.5 x 10 pan head | nylon *(non-magnetic)* | 18 | QT boards (2 each) |
+| 10 | M2.5 x 6 pan head | nylon *(non-magnetic)* | 8 | FeatherWing standoffs (both ends) |
+| 30 | M2.5 nut | nylon *(non-magnetic)* | 18 | QT boards |
+| 25 | M2.5 x 3 mm spacer | nylon *(non-magnetic)* | 18 | under each QT board |
+| 8 | M2.5 x 10 F-F standoff | nylon *(non-magnetic)* | 4 | FeatherWing (clears the header pins) |
+| 5 | M2 x 8 machine screw | any | 1 | printed MG90S horn centre (into the servo's threaded spline) |
+| 5 | M2 x 10 machine screw | any | 1 | `striker_cam_spline` centre |
+| 1 | CA glue (superglue) | - | - | the trimmed horn into `striker_cam` |
 
-**Only if you print the horns or the spline cam:**
+**One kit instead:** the six nylon M2.5 lines are all covered by one
+**M2.5 nylon standoff / screw / nut kit** (the ~300-piece hex kits with
+6–20 mm standoffs).
 
-| Item | Need | Order | Used for |
-|---|---|---|---|
-| M2 x 8 machine screw | 1 | 5 | `horn_mg90s_printed` centre screw |
-| M2 x 10 machine screw | 1 | 5 | `striker_cam_spline` centre screw |
-| M3 x 10 machine screw | 2 | (from the M3 x 10 pack) | `horn_ds3240_printed` centre screws |
-
-**Already on hand or supplied with the servos:** the horn centre screws, the
-tab screws, and 1.75 mm filament (about 12 mm for the pawl pin).
+**The horn centre screws are machine screws.** They go into the servo
+spline's tapped hole, so self-tapping screws won't do there. Use the ones
+supplied with the servos for stock horns.
 
 **Not fixings, but needed to run it:**
 - a TCA9548A I2C mux
