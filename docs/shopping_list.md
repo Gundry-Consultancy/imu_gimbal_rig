@@ -16,7 +16,36 @@ will not.
 - 623ZZ bearings (on order)
 - 1.75 mm filament, for the pawl pin
 
-## To order
+## Amazon UK basket for next-day delivery (checked 2026-10-10, Bristol BS16)
+
+All four were showing "fastest delivery Tomorrow, 11 Oct". Next-day
+delivery may need Prime or a delivery fee, and there is a same-day order
+cutoff.
+
+| Qty | Item | Price | Covers |
+|---|---|---|---|
+| 2 | [400 pcs M2.5 nylon standoff kit (B0GTK7HQDJ)](https://www.amazon.co.uk/dp/B0GTK7HQDJ) | £7.99 each | all board fixings (non-magnetic). Each kit lists 20 x M2.5x12, 20 x M2.5x8, 20 x M2.5x20 screws, 60 nuts, 100 washers (2.5 x 5 x 1 mm), 20 x 10 mm F-F standoffs and M-F standoffs. Two kits cover all 18 board positions with spares |
+| 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (stand, DS3240 tabs, printed-horn centres), x 12 (axles), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
+| 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts. These also work for `tall_top` (46.1 mm grip): use one washer and the nut still fully engages |
+| (opt.) | [M2 x 10 pan head, 304 stainless, 100-pack (B0FJFY1CGX)](https://www.amazon.co.uk/dp/B0FJFY1CGX) | £5.29 | centre screws for a printed MG90S horn / `striker_cam_spline` only. Stock horns use the servo's own screw |
+
+That's about **£28** (or about £33 with the M2 screws).
+
+**How the kit changes the board fixings:**
+- Use M2.5 x 12 screws instead of x 10.
+- Make the 3 mm spacer from three 1 mm nylon washers, or one nut plus one
+  washer.
+- Under the middle deck, snip the screw tips flush with the nut using side
+  cutters. Uncut, they reach to within ~0.5 mm of the bottom deck's board
+  screws.
+- Mount the FeatherWing on the kit's 10 mm F-F standoffs with M2.5 x 8
+  screws, top and bottom.
+
+**What's not truly non-magnetic:** the stack bolts and axle screws above are
+304 stainless, which is only weakly magnetic. Swap them for brass later if
+the magnetometers show it. Brass M3 x 50 wasn't available next-day.
+
+## Full itemised list
 
 | Order | Item | Material | Need | Used for |
 |---|---|---|---|---|
