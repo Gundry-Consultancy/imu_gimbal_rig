@@ -25,8 +25,8 @@ there is a same-day order cutoff.
 
 | Qty | Item | Price | Covers |
 |---|---|---|---|
-| 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (DS3240 tabs, printed-horn centres), x 12 (axles, or longer DS3240 tab screws), x 14 or x 16 (stand: x 16 at most, with a washer), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
-| 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts (44.3 mm grip). `tall_top` now needs M3 x 55: its grip is 52.2 mm with the deck bosses, used without washers |
+| 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (DS3240 tabs, printed-horn centres), x 12 (axles, or longer DS3240 tab screws), x 14 or x 16 (striker tower: x 16 at most, with a washer), x 16 (drive-leaf pad, bench), x 20 (striker drive pin), nuts (incl. the pivot nut), washers |
+| 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts (44.3 mm grip) and the striker's arm pivot. `tall_top` now needs M3 x 55 for the stack: its grip is 52.2 mm with the deck bosses, used without washers |
 | (opt.) | [M2 x 10 pan head, 304 stainless, 100-pack (B0FJFY1CGX)](https://www.amazon.co.uk/dp/B0FJFY1CGX) | £5.29 | centre screws for a printed MG90S horn / `striker_cam_spline` only. Stock horns use the servo's own screw |
 
 That's about **£12** (or about £18 with the M2 screws).
@@ -48,6 +48,8 @@ the swap.
 | 36 | M2.5 x 3 mm spacer (or 3 x 1 mm washers each) | under each board |
 | 4 | M2.5 x 10 F-F standoff, nylon or brass | FeatherWing (clears the header pins) |
 | 8 | M2.5 x 6–8 screw, nylon or brass | FeatherWing standoffs, top and bottom |
+| 1 (+ spares) | **M3 x 30 pan head screw, nylon** | striker head stop screw (it hangs over the top deck, so nylon). New with the 2026-10-10 striker |
+| 2 (+ spares) | **M3 nut, nylon** | lock the stop screw either side of the overarm boss |
 
 **Tidier alternative:** M2.5 **3 + 6 mm brass male-female standoffs** (36),
 plus M2.5 x 6 screws and nuts. The male end goes through the deck slot with a
@@ -69,10 +71,12 @@ screws.
 | 20 | M3 washer | nylon *(non-magnetic)* | 2–6 | axles; stack-bolt washers are optional now (deck bosses) |
 | 10 | **M3 x 12** button head | A2 stainless | 2 | roll and tilt axles through the 623s |
 | 20 | **M3 x 10** socket or button head | A2 / any | 10 | DS3240 tab screws (8, cut into the 2.4 mm pilots; x 12 bites deeper into the new bosses), printed DS3240 horn centres (2) |
-| 10 | **M3 x 14** socket or button head | A2 / any | 4 | striker stand to yoke through the 10 mm stand bosses (x 16 at most, with a washer) |
-| 10 | **M3 x 16** socket head | any | 6 | striker bar pad from below (2), base to bench (4) |
-| 10 | **M3 x 25** socket head | any | 2 | striker bar pad, `tall_top` only (tip clears the bar by a wide margin) |
-| 10 | M3 nut | steel | 4 | base to bench |
+| 10 | **M3 x 14** socket or button head | A2 / any | 4 | striker tower to yoke through the 10 mm stand bosses (x 16 at most, with a washer) |
+| 10 | **M3 x 16** socket head | any | 8 | striker drive-leaf pad (4), base to bench (4) |
+| 5 | **M3 x 20** socket head | A2 / any | 1 | striker drive pin, self-tapped into the arm's tail |
+| (from the M3 x 50 pack) | **M3 x 50** socket head | A2 | 1 | striker arm pivot (through the tower walls and the printed bushing) |
+| 10 | M3 nut | steel / A2 | 5 | base to bench (4), striker pivot (1, in the +X wall's hex pocket) |
+| 5 | **M3 x 30 pan head, nylon** + 2 nylon M3 nuts | nylon *(non-magnetic)* | 1 | striker head stop screw |
 | 25 | M2.5 x 10 pan head | nylon *(non-magnetic)* | 18 | QT boards (2 each) |
 | 10 | M2.5 x 6 pan head | nylon *(non-magnetic)* | 8 | FeatherWing standoffs (both ends) |
 | 30 | M2.5 nut | nylon *(non-magnetic)* | 18 | QT boards |
@@ -89,6 +93,8 @@ screws.
 **The horn centre screws are machine screws.** They go into the servo
 spline's tapped hole, so self-tapping screws won't do there. Use the ones
 supplied with the servos for stock horns.
+
+**No springs or rubber bands to buy:** both striker springs (the drive leaf and the head leaf) are printed PETG.
 
 **Not fixings, but needed to run it:**
 - a TCA9548A I2C mux

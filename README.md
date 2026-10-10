@@ -58,55 +58,112 @@ That is room for **21 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + th
 
 ## Tap striker (`make_striker.py`)
 
-A PETG flat bar with a single hairpin curve at its base. A 270° servo lifts it
-with a cam, and the bar drops onto the roof.
+**Redesigned 2026-10-10 so the gimbal can tilt all the way over.** The old
+hairpin bar hovered just above the roof and limited tilt to ±55°. Now a rigid
+hammer arm pivots on top of a tower on the pan yoke. When parked, it swings
+up and well clear of the whole tilt sweep.
 
-- **Preload is printed in.** The bar is printed in its free shape, with the
-  hammer tip about 30 mm below the roof. Screw the pad down from under the
-  stand (2 x M3). Without the cam, the hammer would press on the roof with
-  **2 N**. Bend the bar up to fit the cam.
-- **Hovers at rest:** the cam's base circle holds the pawl, so the hammer sits
-  **~0.8 mm above the roof** (`HOVER` sets this), even with the servo
-  unpowered. The cam carries about 10 N at rest. The pawl leans 8° into its
-  stop, so that load holds it there.
-- **Lift and release:** the cam lifts a pinned pawl under the bar. At the
-  cliff, the pawl drops off and lands on the base circle. The hammer's
-  momentum flexes the arm on through the hover gap into the roof, then it
-  springs back to hover (piano-style let-off). The drop releases about 36 mJ.
-  The arm could overshoot by about 14 mm, far more than the gap, so the tap
+![striker section](docs/striker-section.png)
+
+![striker changes](docs/striker-redesign-changes.png)
+
+**Parts:**
+- **Tower** (`striker_stand`): bolts to the yoke's idler upright with the
+  same 4 x M3 as before. Everything on it stays behind the ring band
+  (y < −62 mm), so nothing on it can meet the ring when it tilts.
+- **Hammer arm** (`striker_arm`): pivots on an M3 x 50 bolt, through a printed
+  bushing and two spacers, about 66 mm above the roof.
+- **Drive leaf** (`striker_spring`): a PETG strip standing on a seat at the
+  bottom of the tower. Its tip fork is pinned (M3) to the arm's tail.
+- **Cam:** the 270° servo's two-lobe cam bends the drive leaf through a
+  folding pawl.
+
+**How it works:**
+- **Rest:** the drive leaf pushes the tail back, and the tail lands on a
+  rest stop between the walls (with a 2 mm bumper lip). The hammer head then
+  hovers **5 mm above the roof**. The servo carries no load at rest:
+  the pawl sits 0.4 mm clear of the cam's base circle.
+- **Park:** the cam bends the leaf, which swings the arm **48° up**.
+  The parked arm clears everything that moves through the full 360° of tilt.
+- **Tap:** at a cliff the pawl drops off the cam. The leaf throws the arm
+  down onto its rest stop, and the stop takes the arm's energy.
+- **Let-off:** the head sits on its own thin PETG leaf (lost motion). A nylon
+  M3 screw in the overarm presses the leaf down, preloading it **1.4 N**
+  against the screw. When the arm stops, the head's momentum carries it on
+  through the 5 mm gap to the roof (**2.0 N** of leaf force at
+  contact). Then it springs back onto the screw. The preload keeps it from
+  bouncing back into the roof for a second tap.
+- **Energy:** the drop releases **54.7 mJ** in all.
+  - **36 mJ** is the head's share. That's what the tap carries
+    (**27.5 mJ** is left at the roof after the leaf work).
+  - The arm's **18.7 mJ** goes into the tower's rest stop, not the
+    sensor stack.
+- **Let-off margin:** the head could travel **15.5 mm** past the arm
+  stop if the roof weren't there. That's ≥ 3 x the 5 mm gap, so the tap
   always lands.
-- **Reset:** a 270° servo has to turn back to re-arm. On the reverse stroke the
-  pawl folds away from the cliffs, then gravity drops it back against its stop.
-- **Two lobes in the 270° travel:**
+- **Pawl:** pinned with 1.75 mm filament. It points at the cam centre and
+  leans 16° past the cam's force line onto a stop under it. The cam's push,
+  its forward drag and gravity all hold it there. On the reverse stroke the
+  cliffs fold it up and back, and gravity drops it back.
+- **Two lobes in the 270° travel.** Forward is −X rotation (seen from +X,
+  the cam turns clockwise). If your servo runs the other way, flip the
+  angles in software.
 
   | Action | Servo |
   |---|---|
   | rest, hammer hovering | 0° |
   | park for a double tap | ~120° |
   | park for a single tap | ~240° |
-  | double tap | sweep forward through 125° and 245°. The tap spacing is set by sweep speed: about 0.2 s at full MG90S speed, longer if you sweep slower. |
+  | double tap | sweep forward through 125° and 245° (about 0.2 s apart at full MG90S speed) |
   | single tap | from 240°, step past 245° |
   | re-arm | back to 0°, then forward to a park angle |
 
   **Keep the hammer parked whenever the gimbal moves.**
-- **Computed for E = 2 GPa:**
-  - bar 16 x 3.0 mm, 116 mm reach, 12 mm hairpin
-  - cam force 10 N at rest and 14 N when parked, cam lift 4.2 mm
-  - servo torque about 0.35 kg·cm
-  - peak strain 1.3 % when parked
-- **Creep:** PETG relaxes under the constant rest load. The hover gap holds
-  (the cam fixes the shape), but strike energy may fall a little over weeks.
-- **Tuning:** force goes as thickness cubed. `BAR_T`, `F0` and `TRAVEL` are at
-  the top of `make_striker.py`. A wedge shim under the pad also trims the
-  preload.
-- **Mounting:** the stand bolts to the outer face of the pan yoke's idler
-  upright (4 x M3) and covers the tilt bearing.
-- **Range with the striker fitted (hammer parked):** roll ±90° is clear, and
-  tilt is limited to **±55°**.
-- **Printing:** print `striker_bar` on its side, so the layers follow the bend.
-  The pawl pin is a length of 1.75 mm filament.
 
-![striker section](docs/striker-section.png)
+**Computed for E = 2 GPa** (spring models in `leaf_design()` and
+`head_leaf_design()`):
+
+| | |
+|---|---|
+| drive leaf | 20 x 2.01 x 68 mm. 1.69 N at rest, 5.13 N parked at the pin; 1.3 % peak strain parked. The seat leans back 5.57° so a straight print is preloaded |
+| head leaf | 12 x 1.36 x 50 mm, k = 0.12 N/mm, preloaded 11.7 mm by the stop screw; 1.36 % strain at contact |
+| arm | 20.2 g; the head is 0.66 of its moment of inertia |
+| cam | lift 5.72 mm (r 8 → 13.7). 14.5 N on the pawl when parked (the old bar: 14 N); servo torque ≤ 0.48 kg·cm |
+
+**Clearance** (`striker_limits()` in `make_gimbal.py`: `distToShape`
+against everything that moves, 5° steps). Each limit is ≥ 5 mm.
+
+| | tilt 360° (parked) | roll ±90° (parked) | tilt 360° x roll ±45/±90° (parked, 15° steps) | at rest, tilt 0 / roll 0 |
+|---|---|---|---|---|
+| main | **7.9 mm** (clear through 360°) | 17.9 mm | 7.9 mm | 5.0 mm (the head over the roof) |
+| `tall_top` | **7.9 mm** (clear through 360°) | 16.3 mm | 7.9 mm | 5.0 mm (the head over the roof) |
+
+The ring's −Y axle stub is left out of these checks. It only spins inside the yoke's bearing, and its 4.5 mm to the tower's axle-screw pocket is set by the yoke (unchanged).
+
+**At rest, apart from the roof** (main and `tall_top` alike), the nearest
+moving part to each striker piece is:
+- head: a top-deck QT board, 17.0 mm
+- head leaf: 42.0 mm
+- arm: 47.6 mm
+
+The rest of the striker is at least 7.9 mm from anything that moves.
+
+**Tuning:**
+- The tap energy, contact force, gap and let-off margin are `TAP_ENERGY`,
+  `F_CONTACT`, `HOVER` and `OVERSHOOT_MIN` at the top of `make_striker.py`.
+  The leaves are re-solved from those values.
+- On the bench, the stop-screw nuts trim the head preload. A thin shim on
+  the rest-stop lip trims the hover gap.
+- **Creep:** PETG relaxes under constant load. The drive leaf only carries
+  much load while parked, and the stop screw takes up any creep in the head
+  leaf.
+
+**Printing:**
+- `striker_arm` and `striker_spring` must be PETG, at 100 % infill.
+  - `striker_arm` prints on its side (one 12 mm thick profile).
+  - `striker_spring` prints flat, with its lugs and fork up.
+- The tower prints upright, floor down. The pivot bosses are downward
+  teardrops, and the walls stand vertical.
 
 ## Gimbal (`make_gimbal.py`)
 
@@ -121,7 +178,7 @@ against the roll and tilt ranges, and reports any collision.
 | `tilt_ring_mg90s` | roll servo + 623 bearing | MG90S (measured) | DS3240 horn on the +Y bar, M3 axle on -Y |
 | `pan_yoke` | tilt servo + 623 bearing, outer gussets, striker stand pilots | DS3240MG on +Y | pan horn pocket underneath |
 | `base` | pan servo | DS3240MG (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
-| `striker_*` | bar, pawl, cam, stand | MG90S-size 270° servo | |
+| `striker_*` | tower (stand), hammer arm, drive leaf, pawl, cam, pivot bushing + spacers | MG90S-size 270° servo | M3 pivot on a printed bushing |
 
 **Servo mounts:** each mount sets its height from G (tab top to spline top),
 taken as you measured it: MG90S 12.0, DS3240 14.0. If a servo sits a little
@@ -129,8 +186,9 @@ low, put a washer under its tabs. Every mount has a wire notch at the spline
 end, 0.4 mm clearance, lead-in chamfers on both faces and bosses round the
 screw pilots; see [Fit fixes](#fit-fixes-after-the-first-test-print).
 
-The overall envelope is about 137 x 236 x 194 mm (with the striker), and the
-printed parts weigh about 305 g solid (349 g before the fit fixes).
+The overall envelope is about 137 x 226 x 249 mm with the striker at rest
+(about 300 mm tall with the hammer parked), and the printed parts weigh
+about 376 g solid (305 g with the old striker, 349 g before the fit fixes).
 
 ### Fixings
 
@@ -156,9 +214,12 @@ soft-iron error.
 | **Pan axis** | DS3240 horn: supplied centre screw + 2 x M2.5 x 8 self-tap (arm) | 1 set | yoke underside |
 | | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10–12 self-tap | 4 | base plate (10 mm deep in the bosses) |
 | | M3 x 16 (or #4 wood) screws, bench | 4 | base foot corners (3.5 mm holes through 6 mm bosses) |
-| **Striker** | M3 x 14 (x 16 at most, with a washer) | 4 | stand to the yoke's idler upright (covers the tilt bearing). Stand 10 mm at the bosses + upright 6.4 mm; longer pokes through toward the tilt ring |
-| | M3 x 14 from below (tall_top: M3 x 22) | 2 | through the pad seat into the bar's pad pilots |
-| | MG90S-size 270° servo tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | stand servo plate |
+| **Striker** | M3 x 14 (x 16 at most, with a washer) | 4 | tower to the yoke's idler upright (covers the tilt bearing), as before. Plate 10 mm at the bosses + upright 6.4 mm; longer pokes through toward the tilt ring. Reach the heads through the 7 mm holes in the leaf seat |
+| | M3 x 50 + M3 nut | 1 | arm pivot: −X wall, `striker_bushing` (the arm and 2 spacers ride on it), +X wall. The nut drops into the hex pocket on the +X wall; tighten until snug, since the bolt clamps the walls onto the bushing, not the arm |
+| | M3 x 20 | 1 | drive pin: through the drive leaf's fork slots, self-tapped into the arm's tail (2.8 mm pilot). Leave the head ~0.3 mm off the fork so the pin slides |
+| | M3 x 16 | 4 | drive leaf root pad to the seat (self-tap into the 2.8 mm pilots) |
+| | **M3 x 30 nylon** + 2 nylon M3 nuts | 1 | head stop screw: down through the overarm, one nut under the boss and one on top. The lower nut sets how far the screw presses the head leaf (11.7 mm preload). **Nylon:** it hangs right over the top deck |
+| | MG90S-size 270° servo tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | the tower's −X wall (servo plate) |
 | | `striker_cam`: supplied centre screw, horn trimmed to 14 mm and **CA-glued** into the cam | 1 | the cam has no arm pilots |
 | | `striker_cam_spline` instead: M2 x 10 centre screw | 1 | counterbored from the cam's front face |
 | | 1.75 mm filament, ~12 mm | 1 | pawl pin; melt or flare the ends |
@@ -170,10 +231,13 @@ soft-iron error.
 
 **Totals for the main design, with 9 QT boards + wing:**
 - **M3:**
-  - M3 x 50: 2
+  - M3 x 50: 3 (2 stack bolts, 1 striker pivot)
   - M3 x 12: 2 (axles)
-  - M3 x 14: 6 (4 stand, 2 pad)
-  - M3 nuts: 2
+  - M3 x 14: 4 (striker tower)
+  - M3 x 16: 4 (drive leaf pad)
+  - M3 x 20: 1 (drive pin)
+  - M3 x 30 nylon + 2 nylon nuts: 1 (head stop screw)
+  - M3 nuts: 3 (stack bolts, pivot)
   - M3 washers: ~2 (axles; the stack washers are optional)
   - bench screws (M3 x 16): 4
 - **M2.5:**
@@ -266,7 +330,7 @@ cable end) lines up with the notch.
 | roll MG90S | tilt ring, +X plate | inside the ring (the tab face), bottom first | the outer face also works (chamfered) |
 | tilt DS3240 | yoke, +Y upright | the inner face (toward the ring), bottom first | tab face only |
 | pan DS3240 | base, top plate | from above, bottom first | tab face only |
-| cam MG90S | striker stand plate | the cam side (the tab face), bottom first | the other face also works (chamfered) |
+| cam MG90S | striker tower, −X wall | from inside the tower (the tab face), bottom first, before the leaf and cam go in; spline end (cable) up | the other face also works (chamfered) |
 
 **Volume**, for the parts that were lightened or thickened:
 
@@ -300,7 +364,7 @@ with the striker fitted is unchanged.
 ![assembly](docs/assembly-3d.png)
 
 All the STLs are in `parts/`. PETG is recommended throughout because it takes
-the taps well. **The striker bar must be PETG.**
+the taps well. **The striker arm and drive leaf must be PETG.**
 
 | STL | Qty | Nozzle | Orientation on the bed | Notes |
 |---|---|---|---|---|
@@ -312,9 +376,12 @@ the taps well. **The striker bar must be PETG.**
 | `tilt_ring_mg90s` | 1 | 0.6 | flat | **still needs supports** under the side bars and bearing plate (they sit ~10–15 mm up; it's a closed frame). Windows, bosses and pocket roofs are all 45°. Drill the 1.7 mm servo pilots |
 | `pan_yoke` | 1 | 0.6 | on its side (32 mm face down) | the U profile lies flat, so no supports; windows have 45° tops (either side down); ream the 623 pocket if tight |
 | `base` | 1 | 0.6 | on its closed end wall | open box, no supports; windows have 45° tops |
-| `striker_stand` | 1 | 0.6 | front plate (the face that bolts to the yoke) down | rails and webs stand vertical, web windows are triangles; drill the small pilots |
-| `striker_bar` | 1 | 0.4 preferred | **on its side** (profile flat, 16 mm tall) | **PETG**, 100 % infill. Its 3.0 mm thickness sets the force (force goes as thickness cubed, so ±0.1 mm is about ±10 %) |
-| `striker_pawl` | 1 | **0.4 needed** | flat on a 4.4 mm face | 1.9 mm pin hole must swing freely; pin is 1.75 mm filament |
+| `striker_stand` | 1 | 0.6 | **upright, floor down** (as it sits on the yoke) | the tower: walls stand vertical, the pivot bosses are downward teardrops and the rest stops have 45° undersides, so no supports. Windows have 45° tops. Drill the small pilots |
+| `striker_arm` | 1 | 0.4 preferred | **on its side** (the 12 mm thick profile flat) | **PETG**, 100 % infill. The head leaf is 1.36 mm thick (its stiffness goes as thickness cubed; the stop screw trims the preload) |
+| `striker_spring` | 1 | 0.4 preferred | **flat on its plain (+Y) face**, lugs and fork up | **PETG**, 100 % infill. The drive leaf: its 2.01 mm thickness sets the drive force (thickness cubed) |
+| `striker_bushing` | 1 | 0.4 | standing on end | 6 mm tube for the M3 pivot bolt |
+| `striker_spacer` | 2 | 0.4 | standing on end | either side of the arm's hub |
+| `striker_pawl` | 1 | **0.4 needed** | flat on a 4.4 mm face | 1.9 mm pin hole must swing freely; pin is 1.75 mm filament. **Reprint it:** it is 14 mm long now (was 9) |
 | `striker_cam` | 1 | 0.4 preferred | flat, **horn pocket up** | takes a stock horn trimmed to 14 mm; a crisp cliff edge gives a clean drop |
 | `striker_cam_spline` | (alt.) | **0.4 needed** | counterbored face down, hub up | 21T socket moulded in; use instead of `striker_cam` |
 | `horn_mg90s_printed` | 0–1 | **0.4 needed** (0.25 better) | arm down, socket up | 0.3 mm deep spline teeth; only if the stock roll horn doesn't fit |
@@ -327,7 +394,7 @@ the taps well. **The striker bar must be PETG.**
   adjustment noted.
 - **0.4 needed:** fine features (splines, the pawl pin) that a 0.6 smears.
 
-The core set is 12 parts, plus the optional printed horns. Print the horns
+The core set is 15 parts (16 prints with the second spacer), plus the optional printed horns. Print the horns
 with fine layers (0.1–0.12 mm). Print one horn first and test it on a servo
 before printing the others (`SPLINE_CLEAR`).
 
@@ -374,13 +441,31 @@ spline, then drive the centre screw through the part's access hole.
      the bar's access hole.
    - At -Y, fit an M3 x 12 + washer through the yoke's 623 into the ring's
      axle boss.
-8. **Striker:**
-   - Put the cam MG90S into the stand from the cam side. Fit its 2 tab screws.
-   - Screw the bar's pad down from under the seat (2 x M3).
-   - Pin the pawl with filament.
-   - Fit the cam with the servo at 0°.
-   - Bolt the stand to the yoke's -Y upright (4 x M3 x 14). This covers the
-     tilt axle screw, so fit the stand last.
+8. **Striker** (everything goes into the tower before it goes onto the yoke):
+   - Put the cam MG90S into the tower's −X wall from inside, bottom first,
+     spline end (cable) up. Fit its 2 tab screws.
+   - Pin the pawl to the drive leaf's lugs with filament. It should swing
+     freely and fall back onto its stop.
+   - Screw the drive leaf's root pad to the seat (4 x M3 x 16), lugs and
+     pawl toward the servo.
+   - Put the bushing through the arm's hub, with a spacer either side. Hold
+     the arm between the walls and push the M3 x 50 through the −X wall,
+     the bushing and the +X wall, into the nut in its pocket. Tighten until
+     snug. The arm should swing freely.
+   - Bend the leaf's fork onto the tail (the leaf leans back about 5.5° when
+     free). Drive the M3 x 20 pin through one fork slot, self-tap it through
+     the tail and out through the other slot. Leave the head ~0.3 mm clear,
+     so the pin can slide.
+   - Fit the nylon stop screw down through the overarm with a nut under the
+     boss. Turn it until the head leaf is pressed down 11.7 mm (the head's
+     face is level), then lock it with the top nut.
+   - Fit the cam with the servo at 0°: the pawl tip just clears the base
+     circle, 45° up from the cam's +Y side.
+   - Bolt the tower to the yoke's -Y upright (4 x M3 x 14, reached through
+     the holes in the leaf seat). This covers the tilt axle screw, so fit the
+     tower last.
+   - Check the hover gap: the head's face should sit 5 mm above the roof. To
+     trim it, shim the rest-stop lip, where the tail lands.
 
 ## Variants
 
@@ -395,7 +480,7 @@ spline, then drive the centre screw through the part's access hole.
 | `swirly_grid.py` | Pure-Python swirly-grid geometry + hole-pattern fit checker (`python swirly_grid.py 2 4`) |
 | `pack_faces.py` | Portrait QT board placement options on a swirly grid |
 | `make_sensor_stack.py` | Sensor stack decks, spines, roof, board layout, reference board envelopes |
-| `make_striker.py` | Striker bar spring model (free / installed / parked shapes), pawl, cam, stand |
+| `make_striker.py` | Striker: drive-leaf and head-leaf spring models, hammer arm (rest / parked / as printed), pawl, cam, tower |
 | `make_gimbal.py` | Full gimbal + striker, per-part STEP/STL in `parts/`, clearance checks, `imu-gimbal-assembly.FCStd` |
 | `make_swirly_plate.py` | Flat printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `make_carrier.py` | Older standalone flat plate with Feather bosses (not used by the gimbal) |
