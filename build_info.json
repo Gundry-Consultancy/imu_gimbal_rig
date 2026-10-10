@@ -5,5 +5,58 @@
   11.1,
   17.1
  ],
- "roof_raise": 0.0
+ "roof_raise": 0.0,
+ "striker": {
+  "head_leaf_t": 1.36,
+  "head_leaf_k": 0.12,
+  "head_preload_N": 1.4,
+  "head_contact_N": 2.0,
+  "head_pre_defl": 11.7,
+  "let_off_overshoot_mm": 15.5,
+  "head_strain_pct": 1.36,
+  "hover": 5.0,
+  "arm_mass_g": 20.2,
+  "head_share": 0.66,
+  "tap_energy_mJ": 36.0,
+  "roof_energy_mJ": 27.5,
+  "drop_energy_total_mJ": 54.7,
+  "gravity_mJ": 9.1,
+  "arm_stop_energy_mJ": 18.7,
+  "leaf_t": 2.01,
+  "leaf_b": 20.0,
+  "leaf_L": 68.0,
+  "leaf_rest_N": 1.69,
+  "leaf_park_N": 5.13,
+  "leaf_strain_park_pct": 1.3,
+  "seat_lean_deg": 5.57,
+  "pin_travel_y": 13.4,
+  "pin_rise": 7.6,
+  "rest_hold_Nmm": 40.6,
+  "cam_force_N": 14.5,
+  "cam_lift": 5.72,
+  "cam_rmax": 13.7,
+  "beta_park": 36.9,
+  "cam_torque_kgcm": 0.48,
+  "park_deg": 48.0,
+  "pawl_lean_rest": 14.6,
+  "pawl_lean_park": 9.1,
+  "cam_clear_leaf": 2.43,
+  "head_gap_at_arm_stop": 5.0,
+  "pivot_yz": [
+   -90.3,
+   93.7
+  ],
+  "cam_yz": [
+   -106.9,
+   30.4
+  ],
+  "clearance": {
+   "roll90_parked": 17.91,
+   "tilt360_16.8": 7.9,
+   "tilt_roll_16.8": 7.9,
+   "rest": 5.0
+  }
+ },
+ "tilt_sweep_r": 83.34,
+ "roof_z": 27.7
 }
