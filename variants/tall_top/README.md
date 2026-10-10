@@ -21,7 +21,8 @@ cam servo. The STLs are the same as the main design's.
 
 **Unchanged:**
 - The middle deck and its roll walls, the roll axis, tilt ring, pan yoke, base,
-  bottom deck, lower spine and horns.
+  bottom deck, lower spine and horns (all as in the main design, including the
+  2026-10-10 fit fixes).
 - The ring and yoke sizes are pinned to the main build (`../../build_info.json`).
 
 **Striker numbers are the same as the main design:**
@@ -37,7 +38,8 @@ cam servo. The STLs are the same as the main design's.
 - **Tilt with the striker fitted:** improves from ±55° to **−70° / +65°**.
 
 **Hardware differences from the main fixings list:**
-- **Stack bolts:** M3 x 55 instead of x 50 (the grip is 46.1 mm).
+- **Stack bolts:** M3 x 55 instead of x 50. The grip is 52.2 mm with the deck
+  bolt bosses, so leave the washers out (the bosses replace them).
 - **Striker pad screws:** M3 x 22 instead of x 14 (the pad seat is 17.9 mm
   thick, up from 10).
 
