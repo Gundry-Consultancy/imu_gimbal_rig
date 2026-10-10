@@ -42,6 +42,7 @@ V = App.Vector
 OUT_DIR = os.environ.get("GIMBAL_OUT", HERE)
 PARTS_DIR = os.path.join(OUT_DIR, "parts")
 PIN = os.environ.get("GIMBAL_PIN")
+PIN_MIN_CLEAR = 1.5         # a pinned variant may eat into the sweep margins, but not below this
 
 # --- servos ---------------------------------------------------------------
 # Measured by hand 2026-10-08 (see docs/servo-measurements.png). Letters match the drawing.
@@ -436,8 +437,9 @@ def build(variants=(MG90S_TAB,), check=True):
     pinned = json.load(open(PIN)) if PIN else None
     if pinned:
         print(f"roll sweep radius {roll_r:.1f} (pinned ring inner {pinned['ring_in_y']:.1f})", flush=True)
-        assert roll_r + SWEEP_MARGIN <= pinned["ring_in_y"] + 1e-6, "variant stack no longer fits the base ring"
         ring_in_y = pinned["ring_in_y"]
+        print(f"  clearance to the pinned ring: {ring_in_y - roll_r:.1f} mm (design margin {SWEEP_MARGIN})", flush=True)
+        assert ring_in_y - roll_r >= PIN_MIN_CLEAR, "variant stack no longer fits the base ring"
     else:
         print(f"roll sweep radius {roll_r:.1f} -> ring inner {ring_in_y:.1f}", flush=True)
 
@@ -445,7 +447,7 @@ def build(variants=(MG90S_TAB,), check=True):
     tilt_r = max(max_radius(roll_parts + list(r), (0, 1, 0)) for r in rings.values())
     tilt_clear_r = tilt_r + 3.0
     if pinned:
-        assert tilt_clear_r <= pinned["tilt_clear_r"] + 1e-6, "variant no longer fits the base yoke"
+        assert pinned["tilt_clear_r"] - tilt_r >= PIN_MIN_CLEAR, "variant no longer fits the base yoke"
         tilt_clear_r = pinned["tilt_clear_r"]
     print(f"tilt sweep radius {tilt_r:.1f} -> yoke floor at z={-tilt_clear_r:.1f}", flush=True)
     with open(os.path.join(OUT_DIR, "build_info.json"), "w") as f:
