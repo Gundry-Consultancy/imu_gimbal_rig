@@ -162,6 +162,8 @@ soft-iron error.
 
 **Bearings:** 2 x 623ZZ (3 x 10 x 4 mm).
 
+**To order:** see [docs/shopping_list.md](docs/shopping_list.md), with quantities rounded to pack sizes.
+
 **Totals for the main design, with 9 QT boards + wing:**
 - **M3:**
   - M3 x 50: 2
