@@ -17,7 +17,9 @@ That is 21 QT boards + 1 FeatherWing. PR 839 needs 9 breakouts + the wing.
 
 Two M3 bolts at x = +/-14 run through top deck, upper spine, middle deck,
 lower spine and bottom deck, with the heads on top (outside the roof) and
-nuts underneath. Every printed part prints flat without supports.
+nuts underneath. The top and bottom decks have bosses round the bolt holes
+(head and nut side). Every printed part prints flat without supports; the
+bottom deck prints bosses-up.
 """
 
 import itertools
@@ -67,9 +69,26 @@ ROOF = 24.0
 ROOF_T = 3.0
 ROOF_H = QT_SPACER + PCB_T + PARTS_H + 1.0 + (ROOF - POST) / 2 + ROOF_T
 
-WALL_T = 4.0
-WALL_HALF_Y = 19.0
+# End walls (roll horn on +X, idler axle on -X). After the first print the +X wall
+# snapped at its top edge, where the horn pocket and its arm pilots broke out of a
+# 4 mm wall that stopped at the axis. Now: 6 mm thick (>= 3 mm behind the pocket
+# floor), wider than the horn arm, carried 8 mm above the axis with 45 deg shoulders,
+# with a 45 deg rib + boss behind the hub on the inner face (over the strip, clear of
+# the boards) and a flared root on the +X outer face.
+WALL_T = 6.0
+WALL_HALF_Y = 21.0
+WALL_ABOVE = 8.0          # wall top above the roll axis (the hub still rises to HUB_R)
+WALL_SHOULDER = 6.0       # 45 deg chamfer on the wall's top corners
 HUB_R = 11.0
+RIB_HALF_Y = 4.0          # inner rib/boss behind the hub; the strip is +/-4.6, boards start at 5.08
+RIB_D = 3.0               # boss thickness behind the hub (wall + boss behind the pocket)
+RIB_FOOT = 8.0            # rib reach along the deck top
+ROOT_FLARE = 4.0          # 45 deg flare along the +X wall's outer root
+
+# Stack bolt bosses: the top deck (head side) and bottom deck (nut side) are doubled
+# locally around the M3 holes. The bottom deck now prints bosses-up (flipped).
+BOLT_BOSS_R = BOLT_HOLE / 2 + 2.4
+BOLT_BOSS_H = DECK_T
 
 
 def deck_z(gaps=None):
@@ -135,28 +154,69 @@ def roof_post(z0):
     return post.fuse([taper, roof])
 
 
+def _prism_yz(pts, x0, x1):
+    """Polygon in (y, z) extruded along x from x0 to x1."""
+    f = Part.Face(Part.makePolygon([V(x0, y, z) for y, z in pts] + [V(x0, pts[0][0], pts[0][1])]))
+    return f.extrude(V(x1 - x0, 0, 0))
+
+
+def _prism_xz(pts, y0, y1):
+    """Polygon in (x, z) extruded along y from y0 to y1."""
+    f = Part.Face(Part.makePolygon([V(x, y0, z) for x, z in pts] + [V(pts[0][0], y0, pts[0][1])]))
+    return f.extrude(V(0, y1 - y0, 0))
+
+
 def middle_deck(horn_cutter, axle_boss, axle_pilot):
     """Middle deck + roll end walls. Horn/axle features are given in stack coords by make_gimbal."""
     z0, z1 = deck_z()[1]
     za = axis_z()
     shape = deck_plate(z0, z1)
     walls = []
+    zt, c, hy = za + WALL_ABOVE, WALL_SHOULDER, WALL_HALF_Y
+    profile = [(-hy, z0), (hy, z0), (hy, zt - c), (hy - c, zt), (-hy + c, zt), (-hy, zt - c)]
     for sx in (-1, 1):
+        x_in = sx * DECK_X / 2
         x0, x1 = sorted((sx * (DECK_X / 2 - 0.01), sx * (DECK_X / 2 + WALL_T)))
-        w = Part.makeBox(x1 - x0, 2 * WALL_HALF_Y, za - z0, V(x0, -WALL_HALF_Y, z0))
+        w = _prism_yz(profile, x0, x1)
         hub = Part.makeCylinder(HUB_R, x1 - x0, V(x0, 0, za), V(1, 0, 0))
-        walls.append(w.fuse(hub))
+        # inner rib + boss behind the hub (45 deg faces, prints walls-up)
+        h_boss = za - z1 + 2.0
+        rib = [(0, z1 - 0.01), (RIB_FOOT, z1 - 0.01), (RIB_D, z1 + RIB_FOOT - RIB_D), (RIB_D, z1 + h_boss),
+               (0, z1 + h_boss + RIB_D)]
+        rib = _prism_xz([(x_in - sx * (d - 0.01), z) for d, z in rib], -RIB_HALF_Y, RIB_HALF_Y)
+        parts = [hub, rib]
+        if sx > 0:
+            # flared root on the horn wall's outer face
+            xo = sx * (DECK_X / 2 + WALL_T)
+            parts.append(_prism_xz([(xo - 0.01, z0), (xo + ROOT_FLARE, z0), (xo - 0.01, z0 + ROOT_FLARE + 0.01)], -hy, hy))
+        walls.append(w.fuse(parts))
     shape = shape.fuse(walls + [axle_boss]).cut(Part.makeCompound([horn_cutter, axle_pilot]))
     return shape.removeSplitter()
 
 
+def bolt_bosses(z_face, up):
+    """Bosses around the two stack bolt holes on a deck face (up = +1 grows upward)."""
+    out = []
+    for x in (-BOLT_X, BOLT_X):
+        p = V(x, 0, z_face - up * 0.01)
+        out.append(Part.makeCylinder(BOLT_BOSS_R, BOLT_BOSS_H + 0.01, p, V(0, 0, up)))
+    return out
+
+
+def bolt_holes(z0, z1):
+    return Part.makeCompound([Part.makeCylinder(BOLT_HOLE / 2, z1 - z0 + 2, V(x, 0, z0 - 1)) for x in (-BOLT_X, BOLT_X)])
+
+
 def bottom_deck():
-    return deck_plate(*deck_z()[0]).removeSplitter()
+    z0, z1 = deck_z()[0]
+    shape = deck_plate(z0, z1).fuse(bolt_bosses(z0, -1))
+    return shape.cut(bolt_holes(z0 - BOLT_BOSS_H, z1)).removeSplitter()
 
 
 def top_deck():
     z0, z1 = deck_z()[2]
-    return deck_plate(z0, z1).fuse(roof_post(z1)).removeSplitter()
+    shape = deck_plate(z0, z1).fuse([roof_post(z1)] + bolt_bosses(z1, 1))
+    return shape.cut(bolt_holes(z0, z1 + BOLT_BOSS_H)).removeSplitter()
 
 
 def spines():

@@ -71,6 +71,9 @@ RAIL_X = 18.0         # rail inner face |x|
 RAIL_TOP = 12.0       # = idler upright top
 PAD_SEAT_TOP = 17.0
 STAND_BOTTOM = -20.0
+STAND_BOLT_HOLE = 3.4  # M3 clearance through the front plate and its bosses
+PLATE_SIDE = 4.0      # servo plate material beside the MG90S body (was 3)
+WEB_FRAME = 3.5       # frame left round the web windows
 
 
 # --- centreline --------------------------------------------------------------
@@ -365,17 +368,21 @@ def build(g, mg):
                 let_off_overshoot_mm=round(overshoot, 1))
 
     spline_x = -CAM_T / 2 - CAM_HUB
-    horn = mg.placed(mg.horn_pocket(dict(len=14.0, width=6.0, depth=2.0, hub=CAM_HUB, centre=5.0), through=CAM_T + 2),
-                     V(-CAM_T / 2, y_cam, z_cam), (0, 1, 0), (-1, 0, 0))
+    # the cam prints flat with this pocket facing up, so it needs no overhang roofs
+    cam_horn = dict(len=14.0, width=6.0, depth=2.0, hub=CAM_HUB, centre=5.0)
+    horn = mg.placed(mg.horn_pocket(cam_horn, through=CAM_T + 2), V(-CAM_T / 2, y_cam, z_cam), (0, 1, 0), (-1, 0, 0))
+    mg.HORNS["striker_cam"] = dict(horn=cam_horn, origin=V(-CAM_T / 2, y_cam, z_cam), x=(0, 1, 0), z=(-1, 0, 0))
     cam = cam_solid(y_cam, z_cam, h_tot, horn)
     cam_spline = cam_spline_solid(y_cam, z_cam, h_tot, spline_x, servo, mg)
 
     s_origin, s_x, s_z = V(spline_x, y_cam, z_cam), (0, 1, 0), (1, 0, 0)
     servo_env = mg.placed(mg.servo_envelope(servo), s_origin, s_x, s_z)
     tab_half = servo["tab_len"] / 2 + 3
-    plate, plate_cuts = mg.servo_plate(servo, (-servo["offset"] - tab_half, -servo["offset"] + tab_half),
-                                       (-servo["W"] / 2 - 3, servo["W"] / 2 + 3))
+    plate, plate_cuts, bosses = mg.servo_plate(servo, (-servo["offset"] - tab_half, -servo["offset"] + tab_half),
+                                               (-servo["W"] / 2 - PLATE_SIDE, servo["W"] / 2 + PLATE_SIDE))
+    mg.PLATES["striker_stand"] = dict(servo=servo, t=mg.SERVO_PLATE_T, origin=s_origin, x=s_x, z=s_z)
     plate = mg.placed(plate, s_origin, s_x, s_z)
+    bosses = mg.placed(bosses, s_origin, s_x, s_z)
     plate_cuts = [mg.placed(c, s_origin, s_x, s_z) for c in plate_cuts]
 
     # stand: front plate on the upright, two rails, pad seat, webs
@@ -385,19 +392,34 @@ def build(g, mg):
     rails = [mg.box(x0, x1, y_back, y_uo - STAND_T + 0.01, RAIL_TOP - 5, RAIL_TOP)
              for x0, x1 in ((-RAIL_X - RAIL_W, -RAIL_X), (RAIL_X, RAIL_X + RAIL_W))]
     seat = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_back, y_c + PAD_LEN, RAIL_TOP - 5, pad_seat_top)
-    webs = []
+    webs, cuts = [], []
     for x0 in (-RAIL_X - RAIL_W, RAIL_X):
-        pts = [V(x0, y_uo - STAND_T + 0.01, STAND_BOTTOM), V(x0, y_uo - STAND_T + 0.01, RAIL_TOP - 4.99),
-               V(x0, y_back + 4, RAIL_TOP - 4.99), V(x0, y_uo - STAND_T + 0.01, STAND_BOTTOM)]
-        webs.append(Part.Face(Part.makePolygon(pts)).extrude(V(RAIL_W, 0, 0)))
+        tri = [(y_uo - STAND_T + 0.01, STAND_BOTTOM), (y_uo - STAND_T + 0.01, RAIL_TOP - 4.99), (y_back + 4, RAIL_TOP - 4.99)]
+        webs.append(mg.prism(tri, V(x0, 0, 0), (0, 1, 0), (0, 0, 1), (1, 0, 0), 0, RAIL_W))
+        # lightening: triangular window (prints front-plate down; every edge is >= 45 deg or a floor)
+        cuts.append(mg.prism(mg.triangle_window(*tri, inset=WEB_FRAME), V(x0, 0, 0), (0, 1, 0), (0, 0, 1), (1, 0, 0), -1, RAIL_W + 1))
     # servo plate down to the left rail
     pb = plate.BoundBox
     plate_leg = mg.box(pb.XMin, pb.XMax, pb.YMin, pb.YMax, RAIL_TOP - 5, pb.ZMin + 0.01)
-    stand = front.fuse(rails + [seat, plate, plate_leg] + webs)
-    cuts = plate_cuts
+    # bosses round the 4 stand bolts on the back of the front plate (bolt grip doubled)
+    hb = (mg.BOSS_FACTOR - 1) * STAND_T
+    bolt_bosses = [Part.makeCylinder(STAND_BOLT_HOLE / 2 + mg.BOSS_WALL, hb + 0.01, V(x, y_uo - STAND_T + 0.01, z), V(0, -1, 0))
+                   for x, z in g["stand_bolts"]]
+    stand = front.fuse(rails + [seat, plate, plate_leg, bosses] + webs + bolt_bosses)
+    cuts += plate_cuts
     cuts.append(Part.makeCylinder(4.5, STAND_T + 2, V(0, y_uo + 1, 0), V(0, -1, 0)))   # axle screw head
     for x, z in g["stand_bolts"]:
-        cuts.append(Part.makeCylinder(1.7, STAND_T + 2, V(x, y_uo + 1, z), V(0, -1, 0)))
+        cuts.append(Part.makeCylinder(STAND_BOLT_HOLE / 2, STAND_T + hb + 2, V(x, y_uo + 1, z), V(0, -1, 0)))
+    # keep the space above the seating face clear for the tabs (the far tab used to graze the pad seat)
+    cx = -servo["offset"]
+    zt = -servo["spline_above_tab"]
+    cuts.append(mg.placed(mg.box(cx - servo["tab_len"] / 2 - 0.4, cx + servo["tab_len"] / 2 + 0.4, -servo["W"] / 2 - 0.4,
+                                 servo["W"] / 2 + 0.4, zt - servo["tab_t"], zt + 0.5), s_origin, s_x, s_z))
+    # lightening pockets through the pad seat, either side of the pad (clear of the rails)
+    for sx in (-1, 1):
+        u0, u1 = sorted((sx * 9.0, sx * (RAIL_X - 2.4)))
+        cuts.append(mg.prism(mg.window_pts(u0, u1, -(y_c + PAD_LEN - 3.0), -(y_back + 3.0)), V(0, 0, RAIL_TOP - 6),
+                             (1, 0, 0), (0, -1, 0), (0, 0, 1), 0, pad_seat_top - RAIL_TOP + 7))
     for y in (y_c + 4.0, y_c + PAD_LEN - 3.5):
         cuts.append(Part.makeCylinder(1.7, 20, V(0, y, RAIL_TOP - 6)))
     # keep the cam's swept disc clear of the stand
