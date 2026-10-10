@@ -9,8 +9,8 @@ Parts (exported to parts/):
   stack_middle_deck, stack_top_deck, stack_bottom_deck, stack_spine_upper, stack_spine_lower
                                 the sensor stack (see make_sensor_stack.py); only the middle deck's
                                 end walls carry the MG90S horn (+X) and the 623 idler axle (-X)
-  striker_bar, striker_pawl, striker_cam, striker_stand
-                                cam-driven tap striker on the yoke (see make_striker.py)
+  striker_arm, striker_spring, striker_pawl, striker_cam, striker_stand, striker_bushing, striker_spacer
+                                cam-driven tap striker on a tower on the yoke (see make_striker.py)
   tilt_ring_mg90s                holds the roll MG90S and the -X 623 bearing;
                                 standard-servo horn on +Y bar, idler axle on -Y
   pan_yoke                      holds the standard tilt servo (+Y) and the -Y 623 bearing;
@@ -617,36 +617,72 @@ def _self_module():
     return m
 
 
-def striker_limits(roll_parts, rings, striker_parked, striker_inst, yoke_parts, tol=1e-3):
-    """Report gimbal range with the striker fitted (hammer parked) and check the installed hammer."""
-    parked = Part.makeCompound(striker_parked)
-    roll_c = Part.makeCompound(roll_parts)
-    hits = []
-    for deg in range(-90, 91, 10):
-        m = roll_c.copy()
-        m.rotate(V(0, 0, 0), V(1, 0, 0), deg)
-        if m.common(parked).Volume > tol:
-            hits.append(deg)
-    print(f"striker vs roll +/-90 (hammer parked): {'OK' if not hits else 'COLLIDES at ' + str(hits)}", flush=True)
+def min_dist(moving, fixed, cap=20.0):
+    """Smallest distance between two lists of shapes (solid by solid, bounding boxes first).
+    Returns cap when nothing is closer than cap; 0 when they touch or overlap."""
+    best = cap
+    fs = [f for sh in fixed for f in sh.Solids]
+    for m in [m for sh in moving for m in sh.Solids]:
+        mb = m.BoundBox
+        for f in fs:
+            fb = f.BoundBox
+            gap = max(fb.XMin - mb.XMax, mb.XMin - fb.XMax, fb.YMin - mb.YMax, mb.YMin - fb.YMax,
+                      fb.ZMin - mb.ZMax, mb.ZMin - fb.ZMax, 0.0)
+            if gap < best:
+                best = min(best, m.distToShape(f)[0])
+    return best
+
+
+def _turned(shapes, axis, deg):
+    return rotated(shapes, axis, deg) if deg else shapes
+
+
+STRIKER_CLEAR = 5.0         # the striker keeps this far from everything that moves
+
+
+def striker_limits(roll_parts, rings, striker_parked, striker_rest, yoke_parts, ring_out_y, step=5):
+    """Striker vs the gimbal: parked through 360 deg of tilt and +/-90 deg of roll, and at rest
+    (tilt 0, roll 0). Distances by distToShape at `step` deg; returns the minima.
+
+    The ring's -Y axle stub (inside the yoke's bearing) is left out: it only spins on the tilt
+    axis, and its 4.5 mm to the stand's screw-head pocket is set by the yoke, not the striker."""
+    out = {}
+    stub = cyl(6.0, V(0, -ring_out_y - 0.15, 0), V(0, -ring_out_y - 30, 0))
+    rings = {t: [r[0].cut(stub)] + list(r[1:]) for t, r in rings.items()}
+    d = min(min_dist(_turned(roll_parts, (1, 0, 0), deg), striker_parked) for deg in range(-90, 91, step))
+    out["roll90_parked"] = d
+    print(f"striker parked vs roll +/-90 (step {step}): min distance {d:.2f} mm "
+          f"{'OK' if d >= STRIKER_CLEAR else 'TOO CLOSE'}", flush=True)
     for tab, r in rings.items():
-        tilt_c = Part.makeCompound(roll_parts + list(r))
-        limits = []
-        for sign in (1, -1):
-            ok = 0
-            for deg in range(5, 181, 5):
-                m = tilt_c.copy()
-                m.rotate(V(0, 0, 0), V(0, 1, 0), sign * deg)
-                if m.common(parked).Volume > tol:
-                    break
-                ok = deg
-            limits.append(sign * ok)
-        print(f"striker fitted, MG90S tab {tab}: tilt clear from {limits[1]} to +{limits[0]} deg", flush=True)
-    rest = Part.makeCompound(striker_inst)
-    v = rest.common(roll_c).Volume
-    gap = rest.distToShape(roll_c)[0]
-    print(f"hammer at rest: overlap {v:.3f} mm^3, gap to stack {gap:.2f} mm", flush=True)
-    v = parked.common(Part.makeCompound(yoke_parts)).Volume
-    print(f"striker vs yoke overlap {v:.3f} mm^3", flush=True)
+        tilt_set = roll_parts + list(r)
+        worst, worst_deg, bad = 99.0, 0, []
+        for deg in range(0, 360, step):
+            dd = min_dist(_turned(tilt_set, (0, 1, 0), deg), striker_parked)
+            if dd < worst:
+                worst, worst_deg = dd, deg
+            if dd < STRIKER_CLEAR:
+                bad.append(deg)
+        out[f"tilt360_{tab:g}"] = worst
+        verdict = "tilt clear 360" if not bad else f"tilt blocked at {bad[0]}..{bad[-1]} deg"
+        print(f"striker parked, MG90S tab {tab}: {verdict}; min distance {worst:.2f} mm at {worst_deg} deg "
+              f"(need {STRIKER_CLEAR})", flush=True)
+        # both together, coarser: rolled +/-90 and +/-45 while tilting
+        comb = 99.0
+        for rdeg in (-90, -45, 45, 90):
+            rolled = _turned(roll_parts, (1, 0, 0), rdeg) + list(r)
+            for deg in range(0, 360, 15):
+                comb = min(comb, min_dist(_turned(rolled, (0, 1, 0), deg), striker_parked))
+        out[f"tilt_roll_{tab:g}"] = comb
+        print(f"striker parked, tilt 360 x roll +/-45/90 (15 deg): min distance {comb:.2f} mm", flush=True)
+    tilt_set = roll_parts + list(next(iter(rings.values())))
+    d = min_dist(tilt_set, striker_rest)
+    out["rest"] = d
+    print(f"striker at rest (tilt 0, roll 0): min distance to moving parts {d:.2f} mm "
+          f"{'OK' if d >= STRIKER_CLEAR - 0.01 else 'TOO CLOSE'}", flush=True)
+    for name, st in (("parked", striker_parked), ("rest", striker_rest)):
+        v = Part.makeCompound(st).common(Part.makeCompound(yoke_parts)).Volume
+        print(f"striker ({name}) vs yoke overlap {v:.3f} mm^3", flush=True)
+    return out
 
 
 def build(variants=(MG90S_TAB,), check=True):
@@ -685,9 +721,9 @@ def build(variants=(MG90S_TAB,), check=True):
 
     horns = [("horn_mg90s_printed", printed_horn(MG90S)), ("horn_ds3240_printed", printed_horn(DS3240))]
     printed = stack_parts + horns + [("pan_yoke", yoke), ("base", base_shape)] + \
-              [("striker_bar", st["bar_free"]), ("striker_pawl", st["pawl_rest"]),
+              [("striker_arm", st["arm_free"]), ("striker_spring", st["leaf_free"]), ("striker_pawl", st["pawl_rest"]),
                ("striker_cam", st["cam"]), ("striker_cam_spline", st["cam_spline"]),
-               ("striker_stand", st["stand"])] + \
+               ("striker_stand", st["stand"]), ("striker_bushing", st["bushing"]), ("striker_spacer", st["spacer"])] + \
               [("tilt_ring_mg90s" if len(rings) == 1 else f"tilt_ring_mg90s_tab{t:g}", r[0]) for t, r in rings.items()]
     for name, shp in printed:
         print(f"part {name}: valid {shp.isValid()} solids {len(shp.Solids)} bbox "
@@ -701,11 +737,19 @@ def build(variants=(MG90S_TAB,), check=True):
             sweep_check(roll_parts, [ring, roll_servo, ring_brg], (1, 0, 0), "roll: sensor stack vs ring")
             sweep_check(roll_parts + [ring, roll_servo, ring_brg], [yoke, tilt_servo, yoke_brg], (0, 1, 0),
                         "tilt: ring assembly vs yoke")
-        striker_parked = [st["bar_park"], st["pawl_park"], st["cam"], st["stand"], st["servo"]]
+        fixed = [st["cam"], st["stand"], st["servo"]] + st["pivot_parts"]
+        striker_parked = [st["arm_park"], st["leaf_park"], st["pawl_park"]] + fixed
+        striker_rest = [st["arm_rest"], st["leaf_rest"], st["pawl_rest"]] + fixed
         pan_parts = [yoke, tilt_servo, yoke_brg] + roll_parts + list(rings[variants[0]]) + striker_parked
         sweep_check(pan_parts, [base_shape, pan_servo], (0, 0, 1), "pan: yoke + striker vs base")
-        striker_limits(roll_parts, rings, striker_parked, [st["bar_rest"], st["pawl_rest"]],
-                       [yoke, tilt_servo, yoke_brg])
+        lim = striker_limits(roll_parts, rings, striker_parked, striker_rest, [yoke, tilt_servo, yoke_brg],
+                             ring_in_y + RING_BAR_T)
+        with open(os.path.join(OUT_DIR, "build_info.json")) as f:
+            bi = json.load(f)
+        bi["striker"] = dict(st["info"], clearance={k: round(v, 2) for k, v in lim.items()})
+        bi["tilt_sweep_r"], bi["roof_z"] = round(tilt_r, 2), round(ss.roof_top() - ss.axis_z(), 2)
+        with open(os.path.join(OUT_DIR, "build_info.json"), "w") as f:
+            json.dump(bi, f, indent=1)
 
     doc = App.newDocument("imu_gimbal_rig")
 
@@ -734,13 +778,19 @@ def build(variants=(MG90S_TAB,), check=True):
     add("TiltBearing", yoke_brg, "REF 623ZZ tilt idler")
     add("Base", base_shape, "Base")
     add("PanServo", pan_servo, "REF standard servo, pan (DS3240 270)")
-    add("StrikerStand", st["stand"], "Striker stand")
-    add("StrikerBar", st["bar_rest"], "Striker bar (at rest, hammer hovering)")
+    add("StrikerStand", st["stand"], "Striker stand (tower)")
+    add("StrikerArm", st["arm_rest"], "Striker hammer arm (at rest, head 5 mm over the roof)")
+    add("StrikerSpring", st["leaf_rest"], "Striker drive leaf (at rest)")
     add("StrikerPawl", st["pawl_rest"], "Striker pawl")
     add("StrikerCam", st["cam"], "Striker cam")
     add("StrikerServo", st["servo"], "REF MG90S-size 270 deg servo (cam)")
-    add("StrikerBarParked", st["bar_park"], "REF striker bar parked (lifted)", visible=False)
-    add("StrikerBarFree", st["bar_free"], "REF striker bar as printed (free shape)", visible=False)
+    for i, shp in enumerate(st["pivot_parts"]):
+        add(f"StrikerPivot{i}", shp, ("Striker bushing", "Striker spacer", "Striker spacer")[i])
+    add("StrikerArmParked", st["arm_park"], "REF striker arm parked", visible=False)
+    add("StrikerSpringParked", st["leaf_park"], "REF striker drive leaf parked", visible=False)
+    add("StrikerPawlParked", st["pawl_park"], "REF striker pawl parked", visible=False)
+    add("StrikerArmFree", st["arm_free"], "REF striker arm as printed", visible=False)
+    add("StrikerSpringFree", st["leaf_free"], "REF striker drive leaf as printed", visible=False)
     doc.recompute()
     path = os.path.join(OUT_DIR, "imu-gimbal-assembly.FCStd")
     doc.saveAs(path)

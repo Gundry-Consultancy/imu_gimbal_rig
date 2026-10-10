@@ -1,31 +1,43 @@
-"""Cam-driven tap striker: a PETG flat bar with a single hairpin curve at its clamped
-base, lifted by a 270-degree servo cam and released to whack the stack's roof.
+r"""Tap striker: a rigid hammer arm on a high pivot, so the gimbal can tilt all the way over.
 
-Imported by make_gimbal.py (the stand bolts to the pan yoke's idler upright).
+Imported by make_gimbal.py. The tower bolts to the pan yoke's idler upright (4 x M3, the
+same pilots as before) and carries everything well outside the tilt sweep.
+
+Layout (section at x = 0; +Y toward the stack, +Z up)
+
+                  P  pivot (M3 bolt in a printed bushing, top of the tower)
+       stop -> |=|o-------------- beam ----------.------ overarm --[screw]   (nylon M3 stop)
+                  |\                             '-- head leaf ----[HEAD]   (lost-motion leaf)
+           tail   | |  slot                                          roof
+                  |o|  <- M3 pin in the drive leaf's tip fork
+                  | |
+       pawl  o====|  <- drive leaf (vertical PETG, pushes the tail -Y = hammer down)
+      cam ( )     |
+     servo        |__ root pad, screwed to the seat on the tower
 
 How it works
-- The bar is printed in its *free* shape, which already has the preload in it.
-  Screw the base pad down and the hammer would press on the roof with F0 (2 N).
-  Bend it up to fit the cam. The cam's base circle then holds the pawl so the
-  hammer HOVERS just off the roof at rest, even with the servo unpowered.
-- The servo turns the cam forward (+X rotation). The pawl hanging under the
-  bar rides up a ramp, lifting the hammer by T, then drops off a cliff. The
-  pawl lands on the base circle, the hammer's momentum flexes the long arm
-  on through the hover gap into the roof (piano-style let-off), and it
-  springs back to hover.
-- The pawl leans PAWL_LEAN degrees into its stop. Under load at rest it is
-  pushed further into the stop, not folded away.
-- Two lobes fit within the 270-degree travel:
+- The drive leaf is printed straight. Its root pad sits on a seat that leans back by a few
+  degrees, so once its tip fork is pinned to the arm's tail it pushes the tail -Y, which
+  holds the hammer arm down on its rest stop (the tail lands on a cross-bar).
+  At rest the head hovers HOVER (5 mm) above the roof.
+- A 270 deg servo turns a two-lobe cam (forward = -X rotation). A pawl pinned to the drive
+  leaf rides up a ramp, bending the leaf +Y. Through the pin and slot this swings the arm
+  PARK_DEG up, and the hammer parks far outside the tilt sweep. At the cliff the pawl
+  drops off, and the leaf throws the arm down onto its rest stop.
+- Let-off: the head sits on its own thin PETG leaf. A nylon M3 screw in the overarm presses
+  the leaf down, preloading it (HEAD_PRELOAD) against the screw. When the arm hits its
+  stop, the head's momentum bends the leaf on through the 5 mm gap into the roof, and the
+  head springs back onto the screw, where the preload stops it bouncing back into the roof.
+- The pawl hangs off the leaf pointing -Y and leans PAWL_LEAN down onto its stop. The cam's
+  drag and gravity both hold it there. On the reverse stroke the cliffs fold it up, and
+  gravity drops it back. Two lobes fit within the 270 deg travel:
       park at ~120 deg -> sweep forward through 125 and 245: double tap
       park at ~240 deg -> step past 245: single tap
-  To re-arm, turn the servo back to 0. The pawl is pinned (1.75 mm filament)
-  and folds away from the cliffs on the reverse stroke, then gravity drops it
-  back against its stop.
-- Keep the hammer parked (lifted) whenever the gimbal moves.
+  To re-arm, turn the servo back to 0.
+- Keep the hammer parked whenever the gimbal moves.
 
-Spring model: linear moment-curvature along the centreline, so large
-rotations are handled. Printed PETG E is about 1.6-2.2 GPa. Tune the preload
-with BAR_T (force goes as t^3) or a wedge shim under the pad.
+Spring models: small-deflection Euler-Bernoulli cantilevers (E for printed PETG ~2 GPa),
+solved in leaf_design() and head_leaf_design(); the numbers go in build()['info'].
 """
 
 import math
@@ -40,342 +52,637 @@ sys.path.insert(0, HERE)
 
 V = App.Vector
 
-# --- design targets ----------------------------------------------------------
-F0 = 2.0              # N, hammer on the roof after install
-TRAVEL = 15.0         # mm, hammer lift when parked (clears the stack when it rolls)
-E_PETG = 2000.0       # N/mm^2
-BAR_B = 16.0          # bar width (x)
-BAR_T = None          # bar thickness; None = solve for F_park = 1.5 * F0
-R_CURVE = 12.0        # hairpin radius (centreline)
-PAD_LEN = 12.0
-PAD_EXTRA = 2.5       # pad thickening above the leaf
-HAMMER_LEN = 12.0     # along the bar
-LUG_DROP = 3.5        # arm underside to pawl pin
-PAWL_LEN = 9.0        # pin to tip
-PAWL_T = 4.4          # along x, between lugs
-PAWL_W = 5.0          # along the bar
-LUG_T = 3.0
-PIN_D = 1.9           # 1.75 mm filament pin
-HOVER = 0.5           # tip lift at rest (pawl on the cam base circle); the hammer face clears the roof by ~0.8 mm
-PAWL_LEAN = 8.0       # deg, pawl tip leans toward its stop (-Y) so load at rest holds it there
+# --- targets -------------------------------------------------------------------
+HOVER = 5.0            # mm, hammer face above the roof at rest
+PARK_DEG = 48.0        # arm swing from rest to parked
+TAP_ENERGY = 36.0      # mJ, head kinetic energy at let-off (what reaches the roof)
+F_CONTACT = 2.0        # N, head-leaf force when the head touches the roof (preload + rate x HOVER)
+OVERSHOOT_MIN = 3.0    # x HOVER: free let-off travel the head must have
+E_PETG = 2000.0        # N/mm^2
+RHO_PETG = 1.27e-6     # kg/mm^3
+G = 9.81               # m/s^2 (mass in kg -> N; N x mm = mJ)
+STRAIN_PARK = 0.013    # drive leaf peak strain when parked
 
+# --- arm (2.5D profile, 12 mm thick, prints on its side) -------------------------
+ARM_W = 12.0           # x thickness of the whole arm
+PIVOT_BACK = 28.0      # pivot behind the upright's outer face
+PIVOT_UP = 66.0        # pivot above the roof top
+HUB_R = 8.0
+PIVOT_HOLE = 6.3       # hub bore: rides on the printed bushing tube (6.0) round the M3 bolt
+TAIL_LEVER = 18.0      # pivot to the drive pin at rest (vertical lever)
+TAIL_W = 10.0
+TAIL_LEN = 23.0
+PIN_HOLE = 3.4         # M3 drive pin: slides in the leaf's tip slot (this wide)
+TAIL_PILOT = 2.8       # ...and self-taps into the arm's tail, so it is fixed there
+BEAM_H = 10.0
+HEAD_L, HEAD_H = 20.0, 22.0    # head along y, height
+HEAD_LEAF_L = 50.0     # head leaf, root to head centre
+HEAD_LEAF_GAP = 1.5    # as printed, leaf top to overarm underside
+OVERARM_T = 4.0
+SCREW_PILOT = 3.4      # M3 nylon stop screw, clearance: a nylon nut each side of the boss sets the preload
+STOP_BAR = 6.0         # rest-stop cross-bar section
+BUMPER_T = 2.0         # the stop face is a lip this thick over a slot: a little give at landing
+
+# --- drive leaf ----------------------------------------------------------------
+LEAF_B = 20.0          # width (x)
+LEAF_L = 68.0          # free length, root to pin
+LEAF_PAD = 14.0        # root pad height
+LEAF_PAD_T = 6.0       # root pad thickness (y)
+FORK_H = 12.0          # tip block height
+FORK_T = 7.0           # tip block thickness (y)
+FORK_SLOT = 6.4        # half-width of the slot the tail runs in
+FOLLOW_A = 40.0        # pawl lugs above the root
+
+# --- pawl and cam (as the old striker; pin is 1.75 mm filament) -----------------
+LUG_DROP = 3.5
+PAWL_LEN = 14.0       # pin to tip
+PAWL_T = 4.4
+PAWL_W = 5.0
+LUG_T = 3.0
+PIN_D = 1.9
+PAWL_LEAN = 16.0        # deg the pawl leans past the cam's force line, onto its stop (gravity and drag agree)
 CAM_R0 = 8.0
 CAM_T = 6.0
-CAM_HUB = 2.5         # horn hub: cam face to spline top
-# servo angle (deg) breakpoints: (start_ramp, end_ramp, cliff)
+CAM_HUB = 2.5
+CAM_GAP = 0.4          # pawl clear of the base circle at rest
+CAM_BETA0 = 45.0       # deg, contact on the cam above its +Y side (keeps the drop clear of the lobe)
 LOBES = ((15, 115, 125), (135, 235, 245))
 
-STAND_T = 5.0
-RAIL_W = 7.0
-RAIL_X = 18.0         # rail inner face |x|
-RAIL_TOP = 12.0       # = idler upright top
-PAD_SEAT_TOP = 17.0
-STAND_BOTTOM = -20.0
-STAND_BOLT_HOLE = 3.4  # M3 clearance through the front plate and its bosses
-PLATE_SIDE = 4.0      # servo plate material beside the MG90S body (was 3)
-WEB_FRAME = 3.5       # frame left round the web windows
+# --- tower -----------------------------------------------------------------------
+STAND_T = 5.0          # base plate on the upright
+WALL_T = 5.0
+WALL_X = 20.0          # wall inner face |x|
+BASE_BOTTOM = -20.0
+BASE_TOP = 12.0
+STAND_BOLT_HOLE = 3.4
+PLATE_SIDE = 4.0
+WEB_FRAME = 4.0
+BOSS_R = 6.0           # pivot boss radius on the walls
 
 
-# --- centreline --------------------------------------------------------------
-class Bar:
-    """Bar centreline in the YZ plane; the bar runs from the clamp (+Y end of pad) back round the hairpin and forward to the tip."""
-
-    def __init__(self, y_c, y_tip, y_f, z_pad_top, t):
-        self.t = t
-        self.R = R_CURVE
-        self.y_c, self.y_tip, self.y_f = y_c, y_tip, y_f
-        self.z_p = z_pad_top + t / 2                      # pad centreline
-        self.z_arm = self.z_p + 2 * self.R
-        self.L = y_tip - y_c
-        self.a = y_f - y_c
-        self.EI = E_PETG * BAR_B * t ** 3 / 12
-        self.ds = 0.1
-        self.s_pad, self.s_curve = PAD_LEN, PAD_LEN + math.pi * self.R
-        self.s_end = self.s_curve + self.L
-        # installed geometry (straight arm, hammer on roof)
-        self.inst = self._integrate(lambda s, y: 0.0, free=False)
-
-    def kappa0(self, s):
-        return -1.0 / self.R if self.s_pad <= s < self.s_curve else 0.0
-
-    def _integrate(self, extra, free=True):
-        """Integrate heading/position from the clamp. extra(s, y_inst) adds curvature."""
-        y, z, h = self.y_c + PAD_LEN, self.z_p, math.pi
-        pts = [(0.0, y, z, h)]
-        n = int(round(self.s_end / self.ds))
-        for i in range(n):
-            s = i * self.ds
-            y_inst = self.inst[i][1] if hasattr(self, "inst") else y
-            k = self.kappa0(s + self.ds / 2) + (extra(s, y_inst) if free else 0.0)
-            h_mid = h + k * self.ds / 2
-            y += math.cos(h_mid) * self.ds
-            z += math.sin(h_mid) * self.ds
-            h += k * self.ds
-            pts.append(((i + 1) * self.ds, y, z, h))
-        return pts
-
-    def free(self):
-        return self._integrate(lambda s, y: -F0 * (self.y_tip - y) / self.EI if s >= self.s_pad else 0.0)
-
-    def loaded(self, p_cam=0.0, f_tip=0.0):
-        """Free shape + cam force at the follower + tip force (both upward)."""
-        s_f = self.s_curve + self.a
-
-        def extra(s, y):
-            if s < self.s_pad:
-                return 0.0
-            m = -F0 * (self.y_tip - y) + f_tip * (self.y_tip - y)
-            if s < s_f:
-                m += p_cam * (self.y_f - y)
-            return m / self.EI
-        return self._integrate(extra)
-
-    def parked_force(self):
-        """Cam force that lifts the tip TRAVEL above the installed (roof) height."""
-        return self.lift_force(TRAVEL)
-
-    def lift_force(self, dz):
-        """Cam force that lifts the tip dz above the installed (roof) height."""
-        target = self.inst[-1][2] + dz
-        # scan up from zero (tip height is not monotonic once the bar rolls over), then bisect
-        lo, hi = 0.0, 0.5
-        while self.loaded(p_cam=hi)[-1][2] < target:
-            lo, hi = hi, hi + 0.5
-            if hi > 200:
-                raise ValueError("cam force runaway")
-        for _ in range(30):
-            mid = (lo + hi) / 2
-            if self.loaded(p_cam=mid)[-1][2] < target:
-                lo = mid
-            else:
-                hi = mid
-        return (lo + hi) / 2
-
-    def station(self, pts, s):
-        i = min(int(round(s / self.ds)), len(pts) - 1)
-        return pts[i]
+# --- helpers ---------------------------------------------------------------------
+def rot_yz(p, c, deg):
+    """Rotate (y, z) point p about c by deg (positive = about +X: +Y turns toward +Z)."""
+    a = math.radians(deg)
+    y, z = p[0] - c[0], p[1] - c[1]
+    return (c[0] + y * math.cos(a) - z * math.sin(a), c[1] + y * math.sin(a) + z * math.cos(a))
 
 
-def solve_thickness(y_c, y_tip, y_f, z_pad_top):
-    """Thickness giving F_park(tip) = 1.5 * F0, i.e. tip stiffness 0.5 * F0 / TRAVEL."""
-    k_target = 0.5 * F0 / TRAVEL
-    lo, hi = 0.8, 6.0
-    for _ in range(40):
+def prism_yz(pts, x0, x1):
+    """Polygon in (y, z), extruded along x from x0 to x1."""
+    p = [V(x0, y, z) for y, z in pts]
+    return Part.Face(Part.makePolygon(p + [p[0]])).extrude(V(x1 - x0, 0, 0))
+
+
+def cyl_x(r, y, z, x0, x1):
+    return Part.makeCylinder(r, x1 - x0, V(x0, y, z), V(1, 0, 0))
+
+
+def bar_yz(a, b, w, x0, x1):
+    """Straight bar of width w between (y, z) points a and b, extruded along x."""
+    dy, dz = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(dy, dz)
+    ny, nz = -dz / n * w / 2, dy / n * w / 2
+    return prism_yz([(a[0] + ny, a[1] + nz), (b[0] + ny, b[1] + nz), (b[0] - ny, b[1] - nz), (a[0] - ny, a[1] - nz)], x0, x1)
+
+
+def slot_yz(a, b, w, x0, x1):
+    """Rounded slot of width w from a to b (centres), along x."""
+    return bar_yz(a, b, w, x0, x1).fuse([cyl_x(w / 2, a[0], a[1], x0, x1), cyl_x(w / 2, b[0], b[1], x0, x1)])
+
+
+# --- spring models ---------------------------------------------------------------------
+def leaf_k(b, t, L):
+    """Tip stiffness of a cantilever (N/mm)."""
+    return E_PETG * b * t ** 3 / (4 * L ** 3)
+
+
+def leaf_design(work, travel, L=LEAF_L, b=LEAF_B, strain=STRAIN_PARK):
+    """Drive leaf: thickness t and rest deflection d_r so that the spring gives up `work` (mJ)
+    as its tip runs back `travel` (mm) from park to rest, with the parked strain at `strain`.
+    Strain of a tip-loaded cantilever at the root: 3 t d / (2 L^2)."""
+    def solve(t):
+        d_r = 2 * L ** 2 * strain / (3 * t) - travel
+        return d_r, leaf_k(b, t, L) * travel * (d_r + travel / 2)
+    lo, hi = 0.6, 6.0
+    for _ in range(60):
         t = (lo + hi) / 2
-        bar = Bar(y_c, y_tip, y_f, z_pad_top, t)
-        # tip stiffness: tip lift for a 1 N tip load from the installed state
-        lift = bar.loaded(f_tip=F0 + 1.0)[-1][2] - bar.inst[-1][2]
-        if 1.0 / lift < k_target:
+        if solve(t)[1] < work:
             lo = t
         else:
             hi = t
-    return round((lo + hi) / 2, 2)
+    t = (lo + hi) / 2
+    d_r = solve(t)[0]
+    if d_r < 1.0:                       # keep some preload at rest: hold d_r = 1, ease the strain
+        d_r = 1.0
+        lo, hi = 0.6, 6.0
+        for _ in range(60):
+            t = (lo + hi) / 2
+            if leaf_k(b, t, L) * travel * (d_r + travel / 2) < work:
+                lo = t
+            else:
+                hi = t
+        t = (lo + hi) / 2
+    k = leaf_k(b, t, L)
+    return dict(t=round(t, 2), k=k, d_rest=d_r, f_rest=k * d_r, f_park=k * (d_r + travel),
+                strain_rest=3 * t * d_r / (2 * L ** 2), strain_park=3 * t * (d_r + travel) / (2 * L ** 2))
 
 
-# --- solids ------------------------------------------------------------------
-def _profile_face(pts, t):
-    left, right = [], []
-    for _, y, z, h in pts:
-        ny, nz = -math.sin(h), math.cos(h)
-        left.append(V(0, y + ny * t / 2, z + nz * t / 2))
-        right.append(V(0, y - ny * t / 2, z - nz * t / 2))
-    poly = left + right[::-1] + [left[0]]
-    # thin the point list for a lighter face
-    poly = [p for i, p in enumerate(poly) if i % 4 == 0 or i == len(poly) - 1]
-    return Part.Face(Part.makePolygon(poly))
+def head_leaf_design(ke, L=HEAD_LEAF_L, b=ARM_W, gap=HOVER, f_contact=F_CONTACT, factor=OVERSHOOT_MIN, margin=0.75):
+    """Lost-motion head leaf. The stop screw preloads it with P; at the roof (gap below the
+    stop) it pushes with P + k gap = f_contact. With head energy ke (mJ) the free let-off
+    travel d solves P d + k d^2 / 2 = ke; it must be >= factor x gap. Picks k at `margin`
+    of the largest stiffness that still gives that travel."""
+    D = factor * gap
+    k_max = (ke - f_contact * D) / (D * D / 2 - gap * D)
+    if k_max <= 0:
+        raise ValueError(f"head energy {ke:.1f} mJ cannot give {D} mm let-off at {f_contact} N contact")
+    k = margin * k_max
+    p = f_contact - k * gap
+    d = (-p + math.sqrt(p * p + 2 * k * ke)) / k
+    t = (12 * k * L ** 3 / (3 * E_PETG * b)) ** (1 / 3)
+    return dict(t=round(t, 2), k=k, preload=p, pre_defl=p / k, overshoot=d,
+                strain_rest=3 * t * (p / k) / (2 * L ** 2), strain_contact=3 * t * (p / k + gap) / (2 * L ** 2))
 
 
-def _local_box(st, u0, u1, w0, w1, x0, x1):
-    """Box in the bar's local frame at a station (u along the bar, w normal, upwards for the arm)."""
+class DriveLeaf:
+    """Vertical drive leaf, clamped at (y_root, z_root) on a seat leaning back by beta, tip at the pin.
+    Shapes are small-deflection cantilever superpositions; points are (s, y, z, heading)
+    stations like the old bar, heading measured from +Y (pi/2 = straight up)."""
+
+    def __init__(self, y_root, z_root, t, d_rest):
+        self.y0, self.z0, self.t = y_root, z_root, t
+        self.L = LEAF_L
+        self.EI = E_PETG * LEAF_B * t ** 3 / 12
+        self.d_rest = d_rest
+        self.beta = d_rest / self.L           # seat lean (rad): the installed tip sits over the root
+
+    def g(self, s, a):
+        """Deflection at s for a unit load at a."""
+        if s <= a:
+            return s * s * (3 * a - s) / (6 * self.EI)
+        return a * a * (3 * s - a) / (6 * self.EI)
+
+    def gp(self, s, a):
+        """Slope at s for a unit load at a."""
+        if s <= a:
+            return s * (2 * a - s) / (2 * self.EI)
+        return a * a / (2 * self.EI)
+
+    def loads_for_tip(self, d_tip, f_tip=0.0, a=FOLLOW_A):
+        """Cam load at a that puts the tip d_tip (from free) with f_tip pushing the tip back (-Y)."""
+        return (d_tip + f_tip * self.g(self.L, self.L)) / self.g(self.L, a)
+
+    def shape(self, p_cam=0.0, f_tip=0.0, a=FOLLOW_A, tip_prop=None, n=120):
+        """Leaf stations. tip_prop: tip held at this deflection from free by an unknown tip force (rest)."""
+        if tip_prop is not None:                                   # rest: only the tip reaction
+            f = -tip_prop / self.g(self.L, self.L)
+            loads = [(p_cam, a), (-f, self.L)] if p_cam else [(-f, self.L)]
+        else:
+            loads = [(p_cam, a), (-f_tip, self.L)]
+        pts, z, ds = [], self.z0, self.L / n
+        for i in range(n + 1):
+            s = i * ds
+            v = sum(P * self.g(s, aa) for P, aa in loads)
+            vp = sum(P * self.gp(s, aa) for P, aa in loads)
+            dy = -self.beta + vp
+            y = self.y0 - self.beta * s + v
+            if i:
+                z += ds * (1 - dy * dy / 2)          # small-slope shortening
+            pts.append((s, y, z, math.atan2(1.0, dy)))
+        return pts
+
+    def tip_force(self, d_tip):
+        return d_tip / self.g(self.L, self.L)
+
+
+def station(pts, s):
+    ds = pts[1][0] - pts[0][0]
+    return pts[min(int(round(s / ds)), len(pts) - 1)]
+
+
+def _local(st, u, w):
     _, y, z, h = st
-    du, dw = (math.cos(h), math.sin(h)), (-math.sin(h), math.cos(h))
-
-    def P(u, w):
-        return V(0, y + u * du[0] + w * dw[0], z + u * du[1] + w * dw[1])
-    face = Part.Face(Part.makePolygon([P(u0, w0), P(u1, w0), P(u1, w1), P(u0, w1), P(u0, w0)]))
-    f = face.extrude(V(x1 - x0, 0, 0))
-    f.translate(V(x0, 0, 0))
-    return f
-
-
-def _local_cyl_x(st, u, w, r, x0, x1):
-    _, y, z, h = st
-    p = V(x0, y + u * math.cos(h) - w * math.sin(h), z + u * math.sin(h) + w * math.cos(h))
-    return Part.makeCylinder(r, x1 - x0, p, V(1, 0, 0))
+    return (y + u * math.cos(h) - w * math.sin(h), z + u * math.sin(h) + w * math.cos(h))
 
 
 def _local_poly(st, uw, x0, x1):
+    return prism_yz([_local(st, u, w) for u, w in uw], x0, x1)
+
+
+def _local_box(st, u0, u1, w0, w1, x0, x1):
+    return _local_poly(st, [(u0, w0), (u1, w0), (u1, w1), (u0, w1)], x0, x1)
+
+
+def _local_cyl_x(st, u, w, r, x0, x1):
+    y, z = _local(st, u, w)
+    return cyl_x(r, y, z, x0, x1)
+
+
+# --- hammer arm ------------------------------------------------------------------------------
+def arm_layout(g, th, pre):
+    """Key (y, z) positions of the arm at rest. th = head-leaf thickness, pre = its preload deflection."""
+    y_uo, z_roof = g["upright_out_y"], g["roof_z"]
+    P = (y_uo - PIVOT_BACK, z_roof + PIVOT_UP)
+    z_face = z_roof + HOVER
+    z_lc = z_face + HEAD_H + th / 2 + pre            # head-leaf root centreline
+    z_oa = z_lc + th / 2 + HEAD_LEAF_GAP              # overarm underside
+    return dict(P=P, pin=(P[0], P[1] - TAIL_LEVER), z_roof=z_roof, z_face=z_face, z_lc=z_lc, z_oa=z_oa,
+                y_root=-HEAD_LEAF_L, th=th, pre=pre)
+
+
+def head_leaf_line(lay, installed):
+    """Head-leaf centreline [(y, z)] from its root to the head's far end, and the tip slope (rad)."""
+    L, pre, y0, z0 = HEAD_LEAF_L, lay["pre"], lay["y_root"], lay["z_lc"]
+    pts = []
+    for i in range(41):
+        s = L * i / 40
+        pts.append((y0 + s, z0 - (pre * s * s * (3 * L - s) / (2 * L ** 3) if installed else 0.0)))
+    slope = 1.5 * pre / L if installed else 0.0
+    end = HEAD_L / 2
+    pts.append((pts[-1][0] + end, pts[-1][1] - end * math.tan(slope)))
+    return pts, slope
+
+
+def _head(lay):
+    """Head at rest (installed, level): rounded face down to z_face, top under the leaf."""
+    zf, top = lay["z_face"], lay["z_face"] + HEAD_H
+    r = HEAD_L / 2
+    body = prism_yz([(-r, zf + r), (r, zf + r), (r, top + 0.01), (-r, top + 0.01)], -ARM_W / 2, ARM_W / 2)
+    return body.fuse(cyl_x(r, 0.0, zf + r, -ARM_W / 2, ARM_W / 2))
+
+
+def arm_parts(lay, installed=True):
+    """(body, head) solids of the hammer arm at rest. installed=False gives the as-printed shape:
+    head leaf straight, head tilted up by the installed tip slope."""
+    x0, x1 = -ARM_W / 2, ARM_W / 2
+    P, th = lay["P"], lay["th"]
+    line, slope = head_leaf_line(lay, installed)
+    up = [(y, z + th / 2) for y, z in line]
+    dn = [(y, z - th / 2) for y, z in line]
+    leaf = prism_yz(up + dn[::-1], x0, x1)
+    head = _head(lay)
+    if not installed:
+        tip = (0.0, lay["z_lc"] - lay["pre"])
+        head.translate(V(0, 0, lay["pre"]))
+        head.rotate(V(0, tip[0], tip[1] + lay["pre"]), V(1, 0, 0), math.degrees(1.5 * lay["pre"] / HEAD_LEAF_L))
+    head = head.fuse(leaf.common(Part.makeBox(ARM_W, HEAD_L, 100, V(x0, -HEAD_L / 2, lay["z_face"]))))
+    yr, zo = lay["y_root"], lay["z_oa"]
+    z_top = zo + OVERARM_T
+    root = prism_yz([(yr - 8, lay["z_lc"] - th / 2 - 3), (yr + 0.01, lay["z_lc"] - th / 2 - 3),
+                     (yr + 0.01, z_top), (yr - 8, z_top)], x0, x1)
+    overarm = prism_yz([(yr - 1, zo), (HEAD_L / 2 - 2, zo), (HEAD_L / 2 - 2, z_top), (yr - 1, z_top)], x0, x1)
+    boss = prism_yz([(-5, z_top - 0.01), (5, z_top - 0.01), (5, z_top + 4), (-5, z_top + 4)], x0, x1)
+    beam = bar_yz(P, (yr - 4, (lay["z_lc"] + z_top) / 2 - 2), BEAM_H, x0, x1)
+    hub = cyl_x(HUB_R, P[0], P[1], x0, x1)
+    tail = bar_yz(P, (P[0], P[1] - TAIL_LEN), TAIL_W, x0, x1)
+    body = hub.fuse([tail, beam, root, overarm, boss, leaf.cut(Part.makeBox(ARM_W + 2, HEAD_L, 100, V(x0 - 1, -HEAD_L / 2, lay["z_face"])))])
+    cuts = [cyl_x(PIVOT_HOLE / 2, P[0], P[1], x0 - 1, x1 + 1),
+            cyl_x(TAIL_PILOT / 2, P[0], P[1] - TAIL_LEVER, x0 - 1, x1 + 1),
+            Part.makeCylinder(SCREW_PILOT / 2, OVERARM_T + 6, V(0, 0, zo - 1))]
+    # lightening window in the beam (2.5D, prints on its side)
+    a, b = P, (yr - 4, (lay["z_lc"] + z_top) / 2 - 2)
+    n = math.hypot(b[0] - a[0], b[1] - a[1])
+    u = ((b[0] - a[0]) / n, (b[1] - a[1]) / n)
+    win = slot_yz((a[0] + u[0] * (HUB_R + 5), a[1] + u[1] * (HUB_R + 5)), (b[0] - u[0] * 9, b[1] - u[1] * 9),
+                  BEAM_H - 5, x0 - 1, x1 + 1)
+    cuts.append(win)
+    body = body.cut(Part.makeCompound(cuts)).removeSplitter()
+    return body, head.removeSplitter()
+
+
+# --- drive leaf and pawl ---------------------------------------------------------------------
+PIN_TRAVEL = 9.0       # slot length in the leaf's tip block for the pin's rise
+
+
+def _profile(pts, t):
+    left, right = [], []
+    for _, y, z, h in pts:
+        ny, nz = -math.sin(h), math.cos(h)
+        left.append((y + ny * t / 2, z + nz * t / 2))
+        right.append((y - ny * t / 2, z - nz * t / 2))
+    poly = left + right[::-1]
+    return [p for i, p in enumerate(poly) if i % 3 == 0 or i == len(poly) - 1]
+
+
+def _cyl_w(st, u, x, r, w0, w1):
+    """Cylinder along the station's w axis (through the leaf)."""
     _, y, z, h = st
-    pts = [V(0, y + u * math.cos(h) - w * math.sin(h), z + u * math.sin(h) + w * math.cos(h)) for u, w in uw]
-    f = Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(x1 - x0, 0, 0))
-    f.translate(V(x0, 0, 0))
-    return f
+    dw = V(0, -math.sin(h), math.cos(h))
+    a = _local(st, u, w0)
+    return Part.makeCylinder(r, w1 - w0, V(x, a[0], a[1]), dw)
 
 
-def _pawl_contact(st, t):
-    """World (y, z) of the leaned pawl's lowest point at a bar station."""
-    th = math.radians(PAWL_LEAN)
-    r = PAWL_W / 2
-    w_pin = -t / 2 - LUG_DROP
-    cu = -(PAWL_LEN - r) * math.sin(th)
-    cw = w_pin - (PAWL_LEN - r) * math.cos(th)
-    _, y, z, h = st
-    yc = y + cu * math.cos(h) - cw * math.sin(h)
-    zc = z + cu * math.sin(h) + cw * math.cos(h) - r
-    return yc, zc
-
-
-def bar_solid(bar, pts, z_roof):
-    t = bar.t
-    body = _profile_face(pts, t).extrude(V(BAR_B, 0, 0))
-    body.translate(V(-BAR_B / 2, 0, 0))
-    parts = []
-    # pad thickening (pad never moves)
-    parts.append(Part.makeBox(BAR_B, PAD_LEN - 1.5, PAD_EXTRA,
-                              V(-BAR_B / 2, bar.y_c + 1.5, bar.z_p + t / 2 - 0.01)))
-    # hammer at the tip: down to the roof in the installed state, rounded bottom
-    tip = bar.station(pts, bar.s_end)
-    h_len = bar.inst[-1][2] - t / 2 - z_roof           # from the installed tip height
-    parts.append(_local_box(tip, -HAMMER_LEN, 0, -t / 2 - h_len + HAMMER_LEN / 2, -t / 2 + 0.01, -BAR_B / 2, BAR_B / 2))
-    parts.append(_local_cyl_x(tip, -HAMMER_LEN / 2, -t / 2 - h_len + HAMMER_LEN / 2, HAMMER_LEN / 2, -BAR_B / 2, BAR_B / 2))
-    # pawl lugs, pin and stop under the arm at the follower station
-    st = bar.station(pts, bar.s_curve + bar.a)
-    w_pin = -t / 2 - LUG_DROP
+def leaf_solid(leaf, pts):
+    """Drive leaf with root pad, pawl lugs and stop, and the tip fork with the pin slot."""
+    t, b = leaf.t, LEAF_B
+    x0, x1 = -b / 2, b / 2
+    body = prism_yz(_profile(pts, t), x0, x1)
+    s0, sa, st = station(pts, 0), station(pts, FOLLOW_A), station(pts, leaf.L)
+    # everything stands off the -Y face (w > 0): the leaf prints flat on its +Y face
+    wc = FORK_T / 2 - t / 2                                                        # pin line
+    parts = [_local_box(s0, -LEAF_PAD, 0.5, -t / 2, t / 2 + LEAF_PAD_T, x0, x1),        # root pad
+             _local_box(st, -7.0, PIN_TRAVEL + 3.0, -t / 2, FORK_T - t / 2, x0, x1)]    # tip block
+    # pawl lugs (on the -Y face, w > 0) and the stop under the pawl
+    w_pin = t / 2 + LUG_DROP
     gap = PAWL_T / 2 + 0.4
-    for x0, x1 in ((-gap - LUG_T, -gap), (gap, gap + LUG_T)):
-        parts.append(_local_box(st, -3.5, 3.5, w_pin - 3.0, -t / 2 + 0.01, x0, x1))
-    # stop: its face matches the pawl's -u side at PAWL_LEAN (0.3 mm clearance)
-    th = math.radians(PAWL_LEAN)
-    r = PAWL_W / 2
-
-    def u_face(w):                     # w relative to the pin
-        d = (r * math.sin(th) - w) / math.cos(th)
-        return -r * math.cos(th) - d * math.sin(th) - 0.3
-    w_top, w_bot = LUG_DROP + 0.01, -3.0
-    u_back = -r - 4.5
-    stop = [(u_face(w_top), w_pin + w_top), (u_face(w_bot), w_pin + w_bot), (u_back, w_pin + w_bot), (u_back, w_pin + w_top)]
-    parts.append(_local_poly(st, stop, -gap - 0.01, gap + 0.01))
-    shape = body.fuse(parts)
-    pin = _local_cyl_x(st, 0, w_pin, PIN_D / 2, -gap - LUG_T - 1, gap + LUG_T + 1)
-    # pad screw pilots (M3 self-tap from below)
-    pilots = [Part.makeCylinder(1.3, 6, V(0, y, bar.z_p - t / 2 - 1))
-              for y in (bar.y_c + 4.0, bar.y_c + PAD_LEN - 3.5)]
-    return shape.cut(Part.makeCompound([pin] + pilots)).removeSplitter()
+    for a, c in ((-gap - LUG_T, -gap), (gap, gap + LUG_T)):
+        parts.append(_local_box(sa, -3.5, 3.5, t / 2 - 0.01, w_pin + 3.0, a, c))
+    parts.append(_local_poly(sa, _stop_uw(t), -gap - 0.01, gap + 0.01))
+    body = body.fuse(parts)
+    cuts = [_local_box(st, -7.5, PIN_TRAVEL + 4.0, -FORK_T, FORK_T, -FORK_SLOT, FORK_SLOT),   # tail runs here
+            slot_yz(_local(st, 0, wc), _local(st, PIN_TRAVEL, wc), PIN_HOLE, x0 - 1, x1 + 1),
+            _local_cyl_x(sa, 0, w_pin, PIN_D / 2, -gap - LUG_T - 1, gap + LUG_T + 1)]
+    for u in (-4.0, -LEAF_PAD + 4.0):                     # pad screws (M3 clearance) into the seat
+        for x in (-b / 4, b / 4):
+            cuts.append(_cyl_w(s0, u, x, 1.7, -t / 2 - 1, t / 2 + LEAF_PAD_T + 1))
+    return body.cut(Part.makeCompound(cuts)).removeSplitter()
 
 
-def pawl_solid(bar, pts):
-    st = bar.station(pts, bar.s_curve + bar.a)
-    w_pin = -bar.t / 2 - LUG_DROP
-    x0, x1 = -PAWL_T / 2, PAWL_T / 2
-    r = PAWL_W / 2
-    body = _local_box(st, -r, r, w_pin - PAWL_LEN + r, w_pin, x0, x1)
-    body = body.fuse([_local_cyl_x(st, 0, w_pin, r, x0, x1), _local_cyl_x(st, 0, w_pin - PAWL_LEN + r, r, x0, x1)])
-    body = body.cut(_local_cyl_x(st, 0, w_pin, PIN_D / 2 + 0.05, x0 - 1, x1 + 1)).removeSplitter()
-    _, y, z, h = st
-    pin = V(0, y - w_pin * math.sin(h), z + w_pin * math.cos(h))
-    body.rotate(pin, V(1, 0, 0), -PAWL_LEAN)   # tip toward -Y, into the stop
-    return body
+def _pawl_dir():
+    """Pawl axis in the leaf frame at the follower: along +w (-Y), tipped down (-u) so it points
+    at the cam centre, plus PAWL_LEAN. The cam's push, its forward drag and gravity all turn it
+    the same way, onto the stop under it; the reverse stroke folds it up and back."""
+    th = math.radians(CAM_BETA0 + PAWL_LEAN)
+    return (-math.sin(th), math.cos(th))
 
 
-def cam_radius(s, h_tot):
-    """Radius under the pawl at servo angle s (deg)."""
-    s = s % 360
-    for a0, a1, cliff in LOBES:
-        if a0 <= s < a1:
-            return CAM_R0 + h_tot * (s - a0) / (a1 - a0)
-        if a1 <= s < cliff:
-            return CAM_R0 + h_tot
+def _stop_uw(t):
+    """Stop under the pawl (on its -u side), 0.3 mm off its flank, from the leaf face to 3 mm past the pin."""
+    w_pin = t / 2 + LUG_DROP
+    du, dw = _pawl_dir()
+    nu, nw = -dw, du                                # normal toward -u
+    off = PAWL_W / 2 + 0.3
+    l0, l1 = -(LUG_DROP + 0.01) / dw, 3.0 / dw
+    p0 = (l0 * du + off * nu, w_pin + l0 * dw + off * nw)
+    p1 = (l1 * du + off * nu, w_pin + l1 * dw + off * nw)
+    u_back = -PAWL_W / 2 - 4.5
+    return [p0, p1, (u_back, p1[1]), (u_back, p0[1])]
+
+
+def pawl_tip(leaf, pts):
+    """World (y, z) of the pawl's tip-circle centre."""
+    sa = station(pts, FOLLOW_A)
+    du, dw = _pawl_dir()
+    w_pin = leaf.t / 2 + LUG_DROP
+    l = PAWL_LEN - PAWL_W / 2
+    return _local(sa, l * du, w_pin + l * dw)
+
+
+def pawl_solid(leaf, pts):
+    sa = station(pts, FOLLOW_A)
+    w_pin = leaf.t / 2 + LUG_DROP
+    pin = _local(sa, 0, w_pin)
+    shape = slot_yz(pin, pawl_tip(leaf, pts), PAWL_W, -PAWL_T / 2, PAWL_T / 2)
+    return shape.cut(cyl_x(PIN_D / 2 + 0.05, pin[0], pin[1], -PAWL_T, PAWL_T)).removeSplitter()
+
+
+# --- cam ---------------------------------------------------------------------------------------
+def cam_radius(psi, b0, bp, h):
+    """Cam radius at cam-frame angle psi (deg). Forward is -X rotation, so the follower, at
+    world angle beta, sits over psi = beta + s. The ramps run from b0 + a0 to bp + a1."""
+    psi %= 360
+    for a0, a1, c in LOBES:
+        p0, p1, pc = b0 + a0, bp + a1, bp + c
+        if p0 <= psi < p1:
+            return CAM_R0 + h * (psi - p0) / (p1 - p0)
+        if p1 <= psi < pc:
+            return CAM_R0 + h
     return CAM_R0
 
 
-def cam_solid(y_cam, z_cam, h_tot, horn):
-    """Cam in the YZ plane rotating about +X. Cam-frame angle psi = 90 - s."""
+def cam_solid(K, b0, bp, h, horn):
+    """Cam in the YZ plane about +X through K = (y, z), drawn at servo 0."""
     pts = []
-    cliffs = {c for _, _, c in LOBES}
-    for psi10 in range(900, -2700, -5):
-        psi = psi10 / 10
-        s = 90 - psi
-        if round(s, 1) in cliffs:
-            pts.append((psi, cam_radius(s - 0.01, h_tot)))
-        pts.append((psi, cam_radius(s, h_tot)))
-    poly = [V(-CAM_T / 2, y_cam + r * math.cos(math.radians(p)), z_cam + r * math.sin(math.radians(p))) for p, r in pts]
-    poly.append(poly[0])
-    cam = Part.Face(Part.makePolygon(poly)).extrude(V(CAM_T, 0, 0))
-    cuts = [Part.makeCylinder(2.5, CAM_T + 2, V(-CAM_T / 2 - 1, y_cam, z_cam), V(1, 0, 0))]
-    cuts.append(horn)
+    cliffs = [bp + c for _, _, c in LOBES]
+    for i in range(720):
+        psi = i / 2
+        for pc in cliffs:
+            if psi - 0.5 < pc <= psi:
+                pts.append((pc - 1e-3, cam_radius(pc - 1e-3, b0, bp, h)))
+                pts.append((pc, CAM_R0))
+        pts.append((psi, cam_radius(psi, b0, bp, h)))
+    poly = [(K[0] + r * math.cos(math.radians(p)), K[1] + r * math.sin(math.radians(p))) for p, r in pts]
+    cam = prism_yz(poly, -CAM_T / 2, CAM_T / 2)
+    cuts = [cyl_x(2.5, K[0], K[1], -CAM_T / 2 - 1, CAM_T / 2 + 1), horn]
     return cam.cut(Part.makeCompound(cuts)).removeSplitter()
 
 
-def cam_spline_solid(y_cam, z_cam, h_tot, spline_x, servo, mg):
-    """Cam with the MG90S spline moulded in (no horn): a hub reaches toward the servo,
-    an M2 centre screw goes in from the +X face (counterbored)."""
+def cam_spline_solid(K, b0, bp, h, spline_x, servo, mg):
+    """Cam with the MG90S spline moulded in (no horn); M2 centre screw from the +X face."""
     sp = servo["spline"]
-    base = cam_solid(y_cam, z_cam, h_tot, Part.makeBox(0.1, 0.1, 0.1, V(1000, 0, 0)))
-    base = base.fuse(Part.makeCylinder(2.6, CAM_T, V(-CAM_T / 2, y_cam, z_cam), V(1, 0, 0)))   # refill the horn hole
-    hub_face = spline_x - sp["engage"]                    # stays clear of the servo case top
-    hub = Part.makeCylinder(4.8, -CAM_T / 2 - hub_face + 0.01, V(hub_face, y_cam, z_cam), V(1, 0, 0))
+    base = cam_solid(K, b0, bp, h, Part.makeBox(0.1, 0.1, 0.1, V(1000, 0, 0)))
+    base = base.fuse(cyl_x(2.6, K[0], K[1], -CAM_T / 2, CAM_T / 2))
+    hub_face = spline_x - sp["engage"]
+    hub = cyl_x(4.8, K[0], K[1], hub_face, -CAM_T / 2 + 0.01)
     shape = base.fuse(hub)
-    sock = mg.placed(mg.spline_socket(sp, sp["engage"] + 0.01), V(hub_face, y_cam, z_cam), (0, 1, 0), (1, 0, 0))
-    screw = Part.makeCylinder(sp["screw"] / 2, CAM_T + 20, V(hub_face - 1, y_cam, z_cam), V(1, 0, 0))
-    head = Part.makeCylinder(sp["head"] / 2, 1.8, V(CAM_T / 2 - 1.8, y_cam, z_cam), V(1, 0, 0))
+    sock = mg.placed(mg.spline_socket(sp, sp["engage"] + 0.01), V(hub_face, K[0], K[1]), (0, 1, 0), (1, 0, 0))
+    screw = cyl_x(sp["screw"] / 2, K[0], K[1], hub_face - 1, CAM_T / 2 + 20)
+    head = cyl_x(sp["head"] / 2, K[0], K[1], CAM_T / 2 - 1.8, CAM_T / 2 + 0.01)
     return shape.cut(Part.makeCompound([sock, screw, head])).removeSplitter()
 
 
-# --- assembly ------------------------------------------------------------------
-def build(g, mg):
-    """g: dict with ring_out_y, upright_out_y, roof_z, upright_half_x. mg: the make_gimbal module."""
+# --- mechanics -------------------------------------------------------------------------------
+def _mass_props(shapes, P):
+    """mass (kg), CoM (y, z), inertia about the pivot axis (kg mm^2) of PETG solids."""
+    m, my, mz, inertia = 0.0, 0.0, 0.0, 0.0
+    for s in [so for sh in shapes for so in sh.Solids]:
+        mi = s.Volume * RHO_PETG
+        c = s.CenterOfMass
+        d2 = (c.y - P[0]) ** 2 + (c.z - P[1]) ** 2
+        inertia += RHO_PETG * s.MatrixOfInertia.A11 + mi * d2
+        m, my, mz = m + mi, my + mi * c.y, mz + mi * c.z
+    return m, (my / m, mz / m), inertia
+
+
+def solve(g):
+    """Size both leaves and place the cam. Returns (numbers, state)."""
+    hl = head_leaf_design(TAP_ENERGY)
+    lay = arm_layout(g, hl["t"], hl["pre_defl"])
+    P = lay["P"]
+    body, head = arm_parts(lay)
+    m_arm, cm, i_arm = _mass_props([body, head], P)
+    _, _, i_head = _mass_props([head], P)
+    pin0 = lay["pin"]
+    pin1 = rot_yz(pin0, P, PARK_DEG)
+    travel = pin1[0] - pin0[0]
+    cm1 = rot_yz(cm, P, PARK_DEG)
+    w_grav = m_arm * G * (cm1[1] - cm[1])                      # mJ (kg * m/s^2 * mm)
+    # the drive leaf's tip and fork move with the pin (lumped: 0.24 of the leaf + the block)
+    m_leaf = RHO_PETG * (LEAF_B * 2.0 * LEAF_L * 0.24 + LEAF_B * FORK_T * 19)
+    i_tot = i_arm + m_leaf * TAIL_LEVER ** 2
+    share = i_head / i_tot
+    ke_tot = TAP_ENERGY / share
+    leaf_d = leaf_design(ke_tot - w_grav, travel)
+    # the pin rides FORK_T / 2 off the leaf's +Y face, so the leaf stands that much +Y of it
+    leaf = DriveLeaf(pin0[0] + FORK_T / 2 - leaf_d["t"] / 2, pin0[1] - LEAF_L, leaf_d["t"], leaf_d["d_rest"])
+    # rest: tip propped by the arm on its stop; park: cam load with the arm's weight on the tip
+    lever1 = P[1] - pin1[1]
+    f_tip_park = max(0.0, m_arm * G * (cm1[0] - P[0]) / lever1)
+    rest = leaf.shape(tip_prop=leaf.d_rest)
+    p_cam = leaf.loads_for_tip(leaf.d_rest + travel, f_tip_park)
+    park = leaf.shape(p_cam=p_cam, f_tip=f_tip_park)
+    free = leaf.shape()
+    # cam: rest contact at CAM_BETA0 on the cam, CAM_GAP clear of the base circle
+    c0, c1 = pawl_tip(leaf, rest), pawl_tip(leaf, park)
+    r_c = CAM_R0 + CAM_GAP + PAWL_W / 2
+    b0 = math.radians(CAM_BETA0)
+    K = (c0[0] - r_c * math.cos(b0), c0[1] - r_c * math.sin(b0))
+    h = math.hypot(c1[0] - K[0], c1[1] - K[1]) - PAWL_W / 2 - CAM_R0
+    bp = math.degrees(math.atan2(c1[1] - K[1], c1[0] - K[0]))
+    assert bp < CAM_BETA0, f"pawl would land back on the lobe (beta park {bp:.1f} >= {CAM_BETA0})"
+    ramp = math.radians(LOBES[0][1] - LOBES[0][0])
+    du, dw = _pawl_dir()
+    leans = []
+    for pts, beta in ((rest, CAM_BETA0), (park, bp)):
+        d = _local((0, 0.0, 0.0, station(pts, FOLLOW_A)[3]), du, dw)
+        leans.append((math.degrees(math.atan2(d[1], d[0])) - (180 + beta) + 180) % 360 - 180)
+    assert min(leans) > 0, f"pawl lean off the cam's force line {leans}: the load would fold it"
+    t_rest = leaf.tip_force(leaf.d_rest) * TAIL_LEVER + m_arm * G * (cm[0] - P[0])
+    pin_rise = (pin1[1] - pin0[1]) - (park[-1][2] - rest[-1][2])
+    assert pin_rise < PIN_TRAVEL - 0.5, f"pin rises {pin_rise:.1f} mm in the leaf's slot"
+    ke_h = TAP_ENERGY
+    roof_e = ke_h - hl["preload"] * HOVER - hl["k"] * HOVER ** 2 / 2
+    num = dict(
+        head_leaf_t=hl["t"], head_leaf_k=round(hl["k"], 3), head_preload_N=round(hl["preload"], 2),
+        head_contact_N=F_CONTACT, head_pre_defl=round(hl["pre_defl"], 1), let_off_overshoot_mm=round(hl["overshoot"], 1),
+        head_strain_pct=round(100 * hl["strain_contact"], 2), hover=HOVER,
+        arm_mass_g=round(1000 * m_arm, 1), head_share=round(share, 2), tap_energy_mJ=round(ke_h, 1),
+        roof_energy_mJ=round(roof_e, 1), drop_energy_total_mJ=round(ke_tot, 1), gravity_mJ=round(w_grav, 1),
+        arm_stop_energy_mJ=round(ke_tot - ke_h, 1),
+        leaf_t=leaf_d["t"], leaf_b=LEAF_B, leaf_L=LEAF_L, leaf_rest_N=round(leaf_d["f_rest"], 2),
+        leaf_park_N=round(leaf_d["f_park"], 2), leaf_strain_park_pct=round(100 * leaf_d["strain_park"], 2),
+        seat_lean_deg=round(math.degrees(leaf.beta), 2), pin_travel_y=round(travel, 1), pin_rise=round(pin_rise, 1),
+        rest_hold_Nmm=round(t_rest, 1), cam_force_N=round(p_cam, 1), cam_lift=round(h, 2),
+        cam_rmax=round(CAM_R0 + h, 1), beta_park=round(bp, 1),
+        cam_torque_kgcm=round(p_cam * h / ramp / 98.1, 2), park_deg=PARK_DEG,
+        pawl_lean_rest=round(leans[0], 1), pawl_lean_park=round(leans[1], 1))
+    state = dict(lay=lay, leaf=leaf, rest=rest, park=park, free=free, K=K, b0=CAM_BETA0, bp=bp, h=h)
+    return num, state
+
+
+# --- tower -------------------------------------------------------------------------------------
+BOSS_IN = 3.0          # pivot bosses on the walls' inner faces (down-pointing teardrops: print upright)
+HUB_PLAY = 0.2         # per side, hub between the spacers
+BUSHING_OD = 6.0
+
+
+def _teardrop_x(r, y, z, x0, x1):
+    """Circle with a 45 deg point downward (-z), along x: no overhang when printed upright."""
+    k = r / math.sqrt(2)
+    pts = [(y - k, z - k), (y, z - r * math.sqrt(2)), (y + k, z - k)]
+    return cyl_x(r, y, z, x0, x1).fuse(prism_yz(pts + [(y, z)], x0, x1))
+
+
+def _wall(pts, side):
+    x0, x1 = (WALL_X, WALL_X + WALL_T) if side > 0 else (-WALL_X - WALL_T, -WALL_X)
+    return prism_yz(pts, x0, x1)
+
+
+def tower(g, mg, st, plate, plate_cuts, plate_bosses):
+    """Base plate on the upright, two side walls (the -X one carries the servo), the leaf seat,
+    the arm's rest stops and the pivot bosses."""
     y_uo = g["upright_out_y"]
-    y_tip = 0.0
+    y_f = y_uo - STAND_T
+    lay, leaf, K = st["lay"], st["leaf"], st["K"]
+    P = lay["P"]
+    xo = WALL_X + WALL_T
+    pb = plate.BoundBox
+    y_back = pb.YMin - 1.0
+    z_plate_top = pb.ZMax
+    base = mg.box(-xo, xo, y_f, y_uo, BASE_BOTTOM, BASE_TOP)
+    outline = [(y_f + 0.01, BASE_BOTTOM), (y_f + 0.01, P[1] - 24), (P[0] + 9, P[1] + 8), (P[0] - 10, P[1] + 8),
+               (y_back, z_plate_top + 2), (y_back, BASE_BOTTOM)]
+    walls = [_wall(outline, s) for s in (-1, 1)]
+    floor = mg.box(-xo, xo, y_back, y_f + 0.01, BASE_BOTTOM, BASE_BOTTOM + 4)
+    # leaf seat: leans with the leaf, attached to the base plate
+    s0 = station(st["rest"], 0)
+    t = leaf.t
+    w_face = -t / 2                                   # the leaf's +Y face
+    seat = _local_box(s0, -(s0[2] - BASE_BOTTOM) - 10, 0.0, w_face - 40, w_face, -12, 12)   # down to the floor
+    seat = seat.common(mg.box(-13, 13, y_back, y_f + 0.02, BASE_BOTTOM, P[1]))
+    # rest stops: wedges from each wall to over the tail, a 2 mm bumper lip on the contact face
+    y1 = P[0] - TAIL_W / 2
+    y0 = y1 - STOP_BAR
+    zt = P[1] - 8
+    stops, cuts = [], []
+    for sx in (-1, 1):
+        xw = sx * (WALL_X + 0.01)
+        xs = sx * 3.0
+        pts = [(xw, zt), (xs, zt), (xs, zt - 4), (xw, zt - 4 - (WALL_X - 3))]
+        f = Part.Face(Part.makePolygon([V(x, y0, z) for x, z in pts] + [V(pts[0][0], y0, pts[0][1])]))
+        stops.append(f.extrude(V(0, STOP_BAR, 0)))
+        a, b = sorted((xs, sx * 12.0))
+        cuts.append(mg.box(a - 1 if sx < 0 else a, b, y1 - BUMPER_T - 1.2, y1 - BUMPER_T, zt - 3.5, zt - 0.5))
+    bosses = [_teardrop_x(6.0, P[0], P[1], WALL_X - BOSS_IN, WALL_X + 0.01),
+              _teardrop_x(6.0, P[0], P[1], -WALL_X - 0.01, -WALL_X + BOSS_IN)]
+    # bolt bosses round the 4 stand bolts on the back of the base plate (as before)
+    hb = (mg.BOSS_FACTOR - 1) * STAND_T
+    bolt_bosses = [Part.makeCylinder(STAND_BOLT_HOLE / 2 + mg.BOSS_WALL, hb + 0.01, V(x, y_f + 0.01, z), V(0, -1, 0))
+                   for x, z in g["stand_bolts"]]
+    shape = base.fuse(walls + [floor, seat, plate, plate_bosses] + stops + bosses + bolt_bosses)
+    cuts += plate_cuts
+    cuts.append(Part.makeCylinder(4.5, STAND_T + 2, V(0, y_uo + 1, 0), V(0, -1, 0)))     # tilt axle screw head
+    for x, z in g["stand_bolts"]:
+        cuts.append(Part.makeCylinder(STAND_BOLT_HOLE / 2, STAND_T + hb + 2, V(x, y_uo + 1, z), V(0, -1, 0)))
+        cuts.append(Part.makeCylinder(3.6, 60, V(x, y_f - hb, z), V(0, -1, 0)))           # head access through the seat
+    cuts.append(cyl_x(1.7, P[0], P[1], -xo - 1, xo + 1))                                  # pivot bolt
+    hexa = [(P[0] + 3.35 * math.cos(math.radians(30 + 60 * i)), P[1] + 3.35 * math.sin(math.radians(30 + 60 * i)))
+            for i in range(6)]
+    cuts.append(prism_yz(hexa, xo - 2.6, xo + 1))                                         # M3 nut pocket, +X face
+    for u in (-4.0, -LEAF_PAD + 4.0):                                                     # leaf pad screw pilots
+        for x in (-LEAF_B / 4, LEAF_B / 4):
+            cuts.append(_cyl_w(s0, u, x, mg.M3_PILOT / 2, w_face - 12, w_face + 0.5))
+    # lightening windows: in front of the servo (both walls), under it (both), beside it (+X only)
+    z_stop = zt - 4 - (WALL_X - 3)
+    wins = [((pb.YMax + 4, y_f - 5, BASE_TOP + 4, z_stop - 4), (-1, 1)),
+            ((y_back + 5, pb.YMax, BASE_BOTTOM + 8, pb.ZMin - 4), (-1, 1)),
+            ((y_back + 5, pb.YMax, pb.ZMin, pb.ZMax - 2), (1,))]
+    for (a, b, c, d), sides in wins:
+        if b - a < 8 or d - c < 8:
+            continue
+        win = prism_yz(mg.window_pts(a, b, c, d), -xo - 1, xo + 1)
+        for sx in sides:
+            x0, x1 = sorted((sx * (WALL_X - 0.5), sx * (xo + 1)))
+            cuts.append(win.common(mg.box(x0, x1, -500, 500, -500, 500)))
+    fw = mg.window_pts(-WALL_X + 4, WALL_X - 4, y_back + 6, P[0] - 8)                  # stops short of the seat
+    cuts.append(mg.prism(fw, V(0, 0, BASE_BOTTOM - 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), 0, 6))
+    return shape.cut(Part.makeCompound(cuts)).removeSplitter()
+
+
+def bushing():
+    """Pivot bushing: a tube between the two wall bosses (the M3 bolt clamps the walls onto it)."""
+    L = 2 * (WALL_X - BOSS_IN)
+    return Part.makeCylinder(BUSHING_OD / 2, L).cut(Part.makeCylinder(1.7, L + 2, V(0, 0, -1)))
+
+
+def spacer():
+    """Spacer on the bushing, either side of the arm hub."""
+    L = (WALL_X - BOSS_IN) - ARM_W / 2 - HUB_PLAY
+    return Part.makeCylinder(5.0, L).cut(Part.makeCylinder(BUSHING_OD / 2 + 0.2, L + 2, V(0, 0, -1)))
+
+
+# --- assembly ------------------------------------------------------------------------------------
+def _rot(shape, P, deg):
+    s = shape.copy()
+    s.rotate(V(0, P[0], P[1]), V(1, 0, 0), deg)
+    return s
+
+
+def build(g, mg):
+    """g: upright_out_y, roof_z, stand_bolts (+ roof_raise, upright_half_x). mg: the make_gimbal module."""
+    num, st = solve(g)
+    lay, leaf, K = st["lay"], st["leaf"], st["K"]
+    P = lay["P"]
     servo = mg.mg90s(mg.MG90S_TAB)
-
-    # cam behind the stand plate, pad behind the cam
-    r_guess = CAM_R0 + 9.0
-    y_cam = y_uo - STAND_T - 1.0 - r_guess
-    y_pad_front = y_cam - r_guess - 2.0
-    y_c = y_pad_front - PAD_LEN
-    # the whole mechanism rides up with the roof: only the stand's pad seat (and servo-plate leg) grow
-    pad_seat_top = PAD_SEAT_TOP + g.get("roof_raise", 0.0)
-    t = BAR_T or solve_thickness(y_c, y_tip, y_cam, pad_seat_top)
-    bar = Bar(y_c, y_tip, y_cam, pad_seat_top, t)
-
-    free = bar.free()
-    inst = bar.inst
-    p_hover = bar.lift_force(HOVER)
-    hover = bar.loaded(p_cam=p_hover)
-    p_park = bar.parked_force()
-    park = bar.loaded(p_cam=p_park)
-    s_f = bar.s_curve + bar.a
-    # cam centre straight under the leaned pawl's contact point at rest (hover)
-    y_cc, z_cc = _pawl_contact(bar.station(hover, s_f), t)
-    y_cam, z_cam = y_cc, z_cc - CAM_R0
-    y_pk, z_pk = _pawl_contact(bar.station(park, s_f), t)
-    h_tot = math.hypot(y_pk - y_cam, z_pk - z_cam) - CAM_R0
-    lift_tip = park[-1][2] - inst[-1][2]
-    max_strain = p_park * (bar.a + bar.R) * t / 2 / bar.EI
-    preload_strain = F0 * (bar.L + bar.R) * t / 2 / bar.EI
-    torque = p_park * h_tot / math.radians(LOBES[0][1] - LOBES[0][0])
-    free_drop = inst[-1][2] - free[-1][2]
-    # let-off: energy released by the drop vs. the stiffness of the arm beyond the follower
-    k_tip = 0.5 * F0 / TRAVEL
-    energy = (F0 + (F0 + k_tip * TRAVEL)) / 2 * (TRAVEL - HOVER)
-    k_arm = 3 * bar.EI / (bar.L - bar.a) ** 3
-    overshoot = math.sqrt(2 * energy / k_arm)
-    info = dict(t=t, b=BAR_B, L=round(bar.L, 1), R=R_CURVE, a=round(bar.a, 1), free_tip_below_roof=round(free_drop, 1),
-                hover=HOVER, rest_cam_force_N=round(p_hover, 1), park_cam_force_N=round(p_park, 1),
-                tip_lift=round(lift_tip, 1), cam_lift=round(h_tot, 2), cam_rmax=round(CAM_R0 + h_tot, 1),
-                strain_park_pct=round(100 * max_strain, 2), strain_preload_pct=round(100 * preload_strain, 2),
-                cam_torque_kgcm=round(torque / 98.1, 2), drop_energy_mJ=round(energy, 1),
-                let_off_overshoot_mm=round(overshoot, 1))
-
     spline_x = -CAM_T / 2 - CAM_HUB
-    # the cam prints flat with this pocket facing up, so it needs no overhang roofs
     cam_horn = dict(len=14.0, width=6.0, depth=2.0, hub=CAM_HUB, centre=5.0)
-    horn = mg.placed(mg.horn_pocket(cam_horn, through=CAM_T + 2), V(-CAM_T / 2, y_cam, z_cam), (0, 1, 0), (-1, 0, 0))
-    mg.HORNS["striker_cam"] = dict(horn=cam_horn, origin=V(-CAM_T / 2, y_cam, z_cam), x=(0, 1, 0), z=(-1, 0, 0))
-    cam = cam_solid(y_cam, z_cam, h_tot, horn)
-    cam_spline = cam_spline_solid(y_cam, z_cam, h_tot, spline_x, servo, mg)
-
-    s_origin, s_x, s_z = V(spline_x, y_cam, z_cam), (0, 1, 0), (1, 0, 0)
+    horn = mg.placed(mg.horn_pocket(cam_horn, through=CAM_T + 2), V(-CAM_T / 2, K[0], K[1]), (0, 1, 0), (-1, 0, 0))
+    mg.HORNS["striker_cam"] = dict(horn=cam_horn, origin=V(-CAM_T / 2, K[0], K[1]), x=(0, 1, 0), z=(-1, 0, 0))
+    cam = cam_solid(K, st["b0"], st["bp"], st["h"], horn)
+    cam_spline = cam_spline_solid(K, st["b0"], st["bp"], st["h"], spline_x, servo, mg)
+    # servo long axis up (spline end, and its wire notch, at the top)
+    s_origin, s_x, s_z = V(spline_x, K[0], K[1]), (0, 0, 1), (1, 0, 0)
     servo_env = mg.placed(mg.servo_envelope(servo), s_origin, s_x, s_z)
     tab_half = servo["tab_len"] / 2 + 3
     plate, plate_cuts, bosses = mg.servo_plate(servo, (-servo["offset"] - tab_half, -servo["offset"] + tab_half),
@@ -384,58 +691,29 @@ def build(g, mg):
     plate = mg.placed(plate, s_origin, s_x, s_z)
     bosses = mg.placed(bosses, s_origin, s_x, s_z)
     plate_cuts = [mg.placed(c, s_origin, s_x, s_z) for c in plate_cuts]
+    stand = tower(g, mg, st, plate, plate_cuts, bosses)
 
-    # stand: front plate on the upright, two rails, pad seat, webs
-    hx = g["upright_half_x"]
-    y_back = y_c - 1.0
-    front = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_uo - STAND_T, y_uo, STAND_BOTTOM, RAIL_TOP)
-    rails = [mg.box(x0, x1, y_back, y_uo - STAND_T + 0.01, RAIL_TOP - 5, RAIL_TOP)
-             for x0, x1 in ((-RAIL_X - RAIL_W, -RAIL_X), (RAIL_X, RAIL_X + RAIL_W))]
-    seat = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_back, y_c + PAD_LEN, RAIL_TOP - 5, pad_seat_top)
-    webs, cuts = [], []
-    for x0 in (-RAIL_X - RAIL_W, RAIL_X):
-        tri = [(y_uo - STAND_T + 0.01, STAND_BOTTOM), (y_uo - STAND_T + 0.01, RAIL_TOP - 4.99), (y_back + 4, RAIL_TOP - 4.99)]
-        webs.append(mg.prism(tri, V(x0, 0, 0), (0, 1, 0), (0, 0, 1), (1, 0, 0), 0, RAIL_W))
-        # lightening: triangular window (prints front-plate down; every edge is >= 45 deg or a floor)
-        cuts.append(mg.prism(mg.triangle_window(*tri, inset=WEB_FRAME), V(x0, 0, 0), (0, 1, 0), (0, 0, 1), (1, 0, 0), -1, RAIL_W + 1))
-    # servo plate down to the left rail
-    pb = plate.BoundBox
-    plate_leg = mg.box(pb.XMin, pb.XMax, pb.YMin, pb.YMax, RAIL_TOP - 5, pb.ZMin + 0.01)
-    # bosses round the 4 stand bolts on the back of the front plate (bolt grip doubled)
-    hb = (mg.BOSS_FACTOR - 1) * STAND_T
-    bolt_bosses = [Part.makeCylinder(STAND_BOLT_HOLE / 2 + mg.BOSS_WALL, hb + 0.01, V(x, y_uo - STAND_T + 0.01, z), V(0, -1, 0))
-                   for x, z in g["stand_bolts"]]
-    stand = front.fuse(rails + [seat, plate, plate_leg, bosses] + webs + bolt_bosses)
-    cuts += plate_cuts
-    cuts.append(Part.makeCylinder(4.5, STAND_T + 2, V(0, y_uo + 1, 0), V(0, -1, 0)))   # axle screw head
-    for x, z in g["stand_bolts"]:
-        cuts.append(Part.makeCylinder(STAND_BOLT_HOLE / 2, STAND_T + hb + 2, V(x, y_uo + 1, z), V(0, -1, 0)))
-    # keep the space above the seating face clear for the tabs (the far tab used to graze the pad seat)
-    cx = -servo["offset"]
-    zt = -servo["spline_above_tab"]
-    cuts.append(mg.placed(mg.box(cx - servo["tab_len"] / 2 - 0.4, cx + servo["tab_len"] / 2 + 0.4, -servo["W"] / 2 - 0.4,
-                                 servo["W"] / 2 + 0.4, zt - servo["tab_t"], zt + 0.5), s_origin, s_x, s_z))
-    # lightening pockets through the pad seat, either side of the pad (clear of the rails)
-    for sx in (-1, 1):
-        u0, u1 = sorted((sx * 9.0, sx * (RAIL_X - 2.4)))
-        cuts.append(mg.prism(mg.window_pts(u0, u1, -(y_c + PAD_LEN - 3.0), -(y_back + 3.0)), V(0, 0, RAIL_TOP - 6),
-                             (1, 0, 0), (0, -1, 0), (0, 0, 1), 0, pad_seat_top - RAIL_TOP + 7))
-    for y in (y_c + 4.0, y_c + PAD_LEN - 3.5):
-        cuts.append(Part.makeCylinder(1.7, 20, V(0, y, RAIL_TOP - 6)))
-    # keep the cam's swept disc clear of the stand
-    cuts.append(Part.makeCylinder(CAM_R0 + h_tot + 1.5, CAM_T + 3, V(-CAM_T / 2 - 1.5, y_cam, z_cam), V(1, 0, 0)))
-    stand = stand.cut(Part.makeCompound(cuts)).removeSplitter()
-
-    z_roof = g["roof_z"]
-    return dict(
-        info=info,
-        bar_free=bar_solid(bar, free, z_roof),
-        bar_rest=bar_solid(bar, hover, z_roof),
-        bar_park=bar_solid(bar, park, z_roof),
-        pawl_rest=pawl_solid(bar, hover),
-        pawl_park=pawl_solid(bar, park),
-        cam=cam,
-        cam_spline=cam_spline,
-        stand=stand,
-        servo=servo_env,
-    )
+    body, head = arm_parts(lay, installed=True)
+    arm_rest = body.fuse(head).removeSplitter()
+    fb, fh = arm_parts(lay, installed=False)
+    arm_free = fb.fuse(fh).removeSplitter()
+    arm_park = _rot(arm_rest, P, PARK_DEG)
+    leaf_rest, leaf_park, leaf_free = (leaf_solid(leaf, st[k]) for k in ("rest", "park", "free"))
+    pawl_rest, pawl_park = pawl_solid(leaf, st["rest"]), pawl_solid(leaf, st["park"])
+    # the cam's swept disc must miss the leaf, lugs and stop in both states
+    disc = cyl_x(CAM_R0 + st["h"] + 0.5, K[0], K[1], -CAM_T / 2 - 0.5, CAM_T / 2 + 0.5)
+    num["cam_clear_leaf"] = round(min(disc.distToShape(s)[0] for s in (leaf_rest, leaf_park)), 2)
+    # stack-side numbers: head face at the arm stop, and the free let-off travel
+    num["head_gap_at_arm_stop"] = round(head.BoundBox.ZMin - lay["z_roof"], 2)
+    num["pivot_yz"] = (round(P[0], 1), round(P[1], 1))
+    num["cam_yz"] = (round(K[0], 1), round(K[1], 1))
+    piv = []
+    for shp, x0 in ((bushing(), -(WALL_X - BOSS_IN)), (spacer(), -(WALL_X - BOSS_IN)), (spacer(), ARM_W / 2 + HUB_PLAY)):
+        c = shp.copy()
+        c.rotate(V(0, 0, 0), V(0, 1, 0), 90)
+        c.translate(V(x0, P[0], P[1]))
+        piv.append(c)
+    return dict(info=num, pivot_parts=piv, arm_rest=arm_rest, arm_park=arm_park, arm_free=arm_free,
+                leaf_rest=leaf_rest, leaf_park=leaf_park, leaf_free=leaf_free,
+                pawl_rest=pawl_rest, pawl_park=pawl_park, cam=cam, cam_spline=cam_spline,
+                stand=stand, servo=servo_env, bushing=bushing(), spacer=spacer())
