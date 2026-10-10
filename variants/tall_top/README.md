@@ -13,11 +13,13 @@ are unchanged, since the bottom deck isn't attached to the gimbal.
 | Part | Change |
 |---|---|
 | `stack_spine_upper` | 17.1 → **25.0 mm** tall |
-| `striker_stand` | pad seat and servo-plate leg 7.9 mm taller (overall 52.1 → 60.0 mm) |
+| `striker_stand` | the striker tower is 7.9 mm taller (overall 121.7 → 129.6 mm). Its walls, leaf seat and servo plate all move up with the roof |
 
-**Same parts, sitting 7.9 mm higher:** `stack_top_deck` (and its roof),
-`striker_bar`, `striker_pawl`, `striker_cam` / `striker_cam_spline`, and the
-cam servo. The STLs are the same as the main design's.
+**Same parts, sitting 7.9 mm higher:** `stack_top_deck` (and its roof), and
+the whole striker mechanism: `striker_arm`, `striker_spring`,
+`striker_pawl`, `striker_cam` / `striker_cam_spline`, `striker_bushing`,
+`striker_spacer` and the cam servo. The STLs are the same as the main
+design's.
 
 **Unchanged:**
 - The middle deck and its roll walls, the roll axis, tilt ring, pan yoke, base,
@@ -25,9 +27,13 @@ cam servo. The STLs are the same as the main design's.
   2026-10-10 fit fixes).
 - The ring and yoke sizes are pinned to the main build (`../../build_info.json`).
 
-**Striker numbers are the same as the main design:**
-- 15 mm hammer travel, hovering ~0.85 mm above the roof at rest
-- 2 N preload, 14 N cam force when parked, 1.3 % peak strain
+**Striker numbers are the same as the main design** (2026-10-10 redesign;
+see the main README):
+- The head hovers 5 mm above the roof at rest.
+- The arm parks 48° up.
+- Tap energy is 36 mJ of 54.7 mJ total; the arm's 18.7 mJ lands on the
+  tower's rest stop.
+- Let-off overshoot is 15.5 mm.
 
 **Clearance checks:**
 - All checks pass.
@@ -35,13 +41,17 @@ cam servo. The STLs are the same as the main design's.
   tilt ring by 2.4 mm. The main design allows 4 mm, so allow less cable slack
   on the top deck if you roll it all the way round. Within the MG90S's ±90°
   there's more room.
-- **Tilt with the striker fitted:** improves from ±55° to **−70° / +65°**.
+- **Striker (parked):**
+  - **tilt clear through 360°**, min distance 7.9 mm
+  - roll ±90°: 16.3 mm
+  - tilt x roll ±45/±90°: 7.9 mm
+- **Striker at rest:** 5.0 mm (the head over the roof). Apart from the roof: head 17.0 mm to the nearest QT board, head leaf 42.0 mm, arm 47.6 mm.
 
 **Hardware differences from the main fixings list:**
 - **Stack bolts:** M3 x 55 instead of x 50. The grip is 52.2 mm with the deck
   bolt bosses, so leave the washers out (the bosses replace them).
-- **Striker pad screws:** M3 x 22 instead of x 14 (the pad seat is 17.9 mm
-  thick, up from 10).
+- **Striker:** the same fixings as the main design. The old `tall_top` M3 x 22
+  pad screws are no longer used.
 
 ## If you've already printed the main design
 
