@@ -25,8 +25,8 @@ there is a same-day order cutoff.
 
 | Qty | Item | Price | Covers |
 |---|---|---|---|
-| 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (stand, DS3240 tabs, printed-horn centres), x 12 (axles), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
-| 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts. These also work for `tall_top` (46.1 mm grip): use one washer and the nut still fully engages |
+| 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (DS3240 tabs, printed-horn centres), x 12 (axles, or longer DS3240 tab screws), x 14 or x 16 (stand: x 16 at most, with a washer), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
+| 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts (44.3 mm grip). `tall_top` now needs M3 x 55: its grip is 52.2 mm with the deck bosses, used without washers |
 | (opt.) | [M2 x 10 pan head, 304 stainless, 100-pack (B0FJFY1CGX)](https://www.amazon.co.uk/dp/B0FJFY1CGX) | £5.29 | centre screws for a printed MG90S horn / `striker_cam_spline` only. Stock horns use the servo's own screw |
 
 That's about **£12** (or about £18 with the M2 screws).
@@ -66,9 +66,10 @@ screws.
 | 4 | **M3 x 50** bolt | brass or nylon *(non-magnetic)* | 2 | stack bolts, main design |
 | 4 | **M3 x 55** bolt | brass or nylon *(non-magnetic)* | 2 | stack bolts, `tall_top` (skip if not building it) |
 | 10 | M3 nut | brass or nylon *(non-magnetic)* | 2 | stack bolts |
-| 20 | M3 washer | nylon *(non-magnetic)* | 6 | stack bolts, axles |
+| 20 | M3 washer | nylon *(non-magnetic)* | 2–6 | axles; stack-bolt washers are optional now (deck bosses) |
 | 10 | **M3 x 12** button head | A2 stainless | 2 | roll and tilt axles through the 623s |
-| 20 | **M3 x 10** socket or button head | A2 / any | 14 | striker stand to yoke (4, **not longer**), DS3240 tab screws (8, cut into the 2.4 mm pilots), printed DS3240 horn centres (2) |
+| 20 | **M3 x 10** socket or button head | A2 / any | 10 | DS3240 tab screws (8, cut into the 2.4 mm pilots; x 12 bites deeper into the new bosses), printed DS3240 horn centres (2) |
+| 10 | **M3 x 14** socket or button head | A2 / any | 4 | striker stand to yoke through the 10 mm stand bosses (x 16 at most, with a washer) |
 | 10 | **M3 x 16** socket head | any | 6 | striker bar pad from below (2), base to bench (4) |
 | 10 | **M3 x 25** socket head | any | 2 | striker bar pad, `tall_top` only (tip clears the bar by a wide margin) |
 | 10 | M3 nut | steel | 4 | base to bench |

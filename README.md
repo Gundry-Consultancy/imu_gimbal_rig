@@ -35,7 +35,7 @@ sides are open.
 | Deck | Boards |
 |---|---|
 | top | 8 portrait QT around a central post with a flared **roof** (24 mm square) for the striker |
-| middle | FeatherWing on 10 mm standoffs (clears header pins) + 1 QT, and 4 QT. Its +X / -X end walls carry the MG90S roll horn and the idler axle. This is the only deck connected to the gimbal. |
+| middle | FeatherWing on 10 mm standoffs (clears header pins) + 1 QT, and 4 QT. Its +X / -X end walls (6 mm, with a rib and boss behind the hub) carry the MG90S roll horn and the idler axle. This is the only deck connected to the gimbal. |
 | bottom | 8 portrait QT |
 
 That is room for **21 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + the wing.
@@ -48,7 +48,9 @@ That is room for **21 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + th
 - **Spines:** a solid strip runs between the two rows on every deck. The upper
   and lower spines (36 x 7 mm standoffs) sit on it, directly under the roof.
 - **Clamping:** two M3 bolts at x = ±14 run through the whole stack, with the
-  heads on top, just outside the roof, and nuts underneath.
+  heads on top, just outside the roof, and nuts underneath. The top and bottom
+  decks have bosses round the bolt holes (6 mm there instead of 3), so washers
+  are optional.
 - **Mux:** you'll need a TCA9548A, because of I²C address clashes (several
   LIS3MDL/LSM303/LSM9DS1 parts share addresses). It fits in a spare board spot.
 
@@ -123,10 +125,12 @@ against the roll and tilt ranges, and reports any collision.
 
 **Servo mounts:** each mount sets its height from G (tab top to spline top),
 taken as you measured it: MG90S 12.0, DS3240 14.0. If a servo sits a little
-low, put a washer under its tabs.
+low, put a washer under its tabs. Every mount has a wire notch at the spline
+end, 0.4 mm clearance, lead-in chamfers on both faces and bosses round the
+screw pilots; see [Fit fixes](#fit-fixes-after-the-first-test-print).
 
-The overall envelope is about 132 x 236 x 192 mm (with the striker), and the
-printed parts weigh about 340 g solid.
+The overall envelope is about 137 x 236 x 194 mm (with the striker), and the
+printed parts weigh about 305 g solid (349 g before the fit fixes).
 
 ### Fixings
 
@@ -139,20 +143,20 @@ soft-iron error.
 
 | Where | Fixing | Qty | Notes |
 |---|---|---|---|
-| **Sensor stack** | M3 x 50 bolt (tall_top: M3 x 55) | 2 | top deck through both spines to the bottom deck at x = ±14; **brass or nylon preferred** |
-| | M3 nut + 2 washers | 2 + 4 | nuts under the bottom deck, heads on top just outside the roof |
+| **Sensor stack** | M3 x 50 bolt (tall_top: M3 x 55) | 2 | top deck through both spines to the bottom deck at x = ±14; grip 44.3 mm (tall_top 52.2); **brass or nylon preferred** |
+| | M3 nut (+ washers, optional) | 2 | nuts under the bottom deck's bosses, heads on the top deck's bosses just outside the roof. With tall_top's M3 x 55, leave the washers out |
 | **QT boards** | M2.5 x 10 screw + nut + 3 mm spacer | 2 per board | top-edge hole pair; **nylon**. 9 boards in PR 839 = 18 sets (capacity 21 boards = 42) |
 | **FeatherWing** | M2.5 x 10 standoff (F-F) + 2 x M2.5 x 6 screws + nut | 4 | nylon; 10 mm clears male headers |
-| **Roll axis** | MG90S horn: supplied centre screw + 2 x M2 x 6 self-tap (arm) | 1 set | middle deck +X wall |
+| **Roll axis** | MG90S horn: supplied centre screw + 2 x M2 x 6 self-tap (arm) | 1 set | middle deck +X wall (4 mm behind the pocket floor) |
 | | 623ZZ bearing + M3 x 12 button head + washer | 1 | tilt ring -X end, screw into the middle deck's -X axle boss |
-| | MG90S tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | tilt ring servo plate (1.7 mm pilots) |
+| | MG90S tab screws: supplied, or 2 x M2 x 8–10 self-tap | 2 | tilt ring servo plate (1.7 mm pilots, 10 mm deep in the bosses) |
 | **Tilt axis** | DS3240 horn: supplied centre screw + 2 x M2.5 x 8 self-tap (arm) | 1 set | tilt ring +Y bar |
 | | 623ZZ bearing + M3 x 12 button head + washer | 1 | yoke -Y upright, screw into the ring's -Y axle boss |
-| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10 self-tap | 4 | yoke +Y plate (2.4 mm pilots) |
+| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10–14 self-tap | 4 | yoke +Y plate (2.4 mm pilots, 12 mm deep in the bosses) |
 | **Pan axis** | DS3240 horn: supplied centre screw + 2 x M2.5 x 8 self-tap (arm) | 1 set | yoke underside |
-| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10 self-tap | 4 | base plate |
-| | M3 (or #4 wood) screws, bench | 4 | base foot corners (3.5 mm holes) |
-| **Striker** | M3 x 10 (**not longer**) | 4 | stand to the yoke's idler upright (covers the tilt bearing); a x 12 would poke through toward the tilt ring |
+| | DS3240 tab screws: supplied, or 4 x M2.6/M3 x 10–12 self-tap | 4 | base plate (10 mm deep in the bosses) |
+| | M3 x 16 (or #4 wood) screws, bench | 4 | base foot corners (3.5 mm holes through 6 mm bosses) |
+| **Striker** | M3 x 14 (x 16 at most, with a washer) | 4 | stand to the yoke's idler upright (covers the tilt bearing). Stand 10 mm at the bosses + upright 6.4 mm; longer pokes through toward the tilt ring |
 | | M3 x 14 from below (tall_top: M3 x 22) | 2 | through the pad seat into the bar's pad pilots |
 | | MG90S-size 270° servo tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | stand servo plate |
 | | `striker_cam`: supplied centre screw, horn trimmed to 14 mm and **CA-glued** into the cam | 1 | the cam has no arm pilots |
@@ -168,11 +172,10 @@ soft-iron error.
 - **M3:**
   - M3 x 50: 2
   - M3 x 12: 2 (axles)
-  - M3 x 10: 4 (stand)
-  - M3 x 14: 2
+  - M3 x 14: 6 (4 stand, 2 pad)
   - M3 nuts: 2
-  - M3 washers: ~6
-  - bench screws: 4
+  - M3 washers: ~2 (axles; the stack washers are optional)
+  - bench screws (M3 x 16): 4
 - **M2.5:**
   - M2.5 x 10: 18 (QT boards)
   - M2.5 x 6: 8 (wing)
@@ -182,7 +185,8 @@ soft-iron error.
   - 10 mm F-F standoffs: 4
 - **M2:**
   - M2 x 6 self-tap: 2 (MG90S horn arms)
-  - M2 x 8 self-tap: 4 (tabs, if not supplied)
+  - M2 x 8 self-tap: 4 (MG90S tabs, if not supplied)
+  - M3 x 12 self-tap: 8 (DS3240 tabs, if not supplied)
 - **Servo-supplied:** the horn centre screws and tab screws for 2 x MG90S and
   2 x DS3240.
 - **Other:** 2 x 623ZZ bearings and a little 1.75 mm filament.
@@ -210,8 +214,86 @@ soft-iron error.
 trimmed to 14 mm, and `striker_cam_spline` has the 21T socket moulded in
 (M2 screw from the front, counterbored).
 
-**Assembly order, either way:** screw the horn to the part, press it onto the
+**Fitting a horn, either way:** screw the horn to the part, press it onto the
 spline, then drive the centre screw through the part's access hole.
+
+## Fit fixes after the first test print
+
+![fit-fix changes](docs/fit-fixes-changes.png)
+
+The first print failed in three ways:
+- the servos would not go into their plates
+- the plates and the tilt ring snapped at the screw pilots when they were
+  flexed to get the servos in
+- the middle deck's +X (horn) wall snapped along its top edge
+
+Every fix is parametric. The servo-plate values are at the top of
+`make_gimbal.py`, and the wall values at the top of `make_sensor_stack.py`.
+
+| Problem | Fix | Parameters |
+|---|---|---|
+| The cable exit caught on the plate | A wire notch at the spline end of every body cut-out, through the plate and its bosses | `wire_notch` in the `MG90S` / `DS3240` dicts, `MOUSE_EAR_MIN_ARC` |
+| The cut-out was too tight | 0.4 mm clearance per side (was 0.25), plus a 1 mm x 45° lead-in chamfer on **both** faces | `SERVO_CUT_CLEAR`, `SERVO_LEADIN` |
+| Plates snapped at the pilots | 45° cone bosses on the side away from the tabs double the material round every tab pilot (the seat doesn't move). Bosses were also added at the striker-stand bolts, the stack bolt holes, the bench holes and the yoke's horn-arm pilots | `BOSS_FACTOR`, `BOSS_WALL` |
+| The horn wall snapped | The wall is 6 mm thick (4 mm behind the pocket floor, was 2), wider than the horn arm and carried 8 mm above the axis with 45° shoulders. It has a rib and boss behind the hub and a flared root. The pocket has 45° roofs and the access hole is a teardrop, so nothing bridges when it prints walls-up | `WALL_T`, `WALL_ABOVE`, `RIB_*`, `ROOT_FLARE` |
+| Thin bearing lips | Both 623 lips are 2.4 mm (were 2.0) | `RING_BRG_PLATE_T`, `YOKE_BRG_T` |
+| Heavy parts | Windows in the low-stress webs of the ring, yoke, base and stand, with 45° tops so they print without support | `MAX_BRIDGE` |
+
+**Wire notches and open-sided (mouse-ear) pilots.** A screw pilot sits right
+where the cable leaves each servo, so the notch opens one side of that pilot
+instead of leaving a paper-thin wall. At least 240° of wall stays round each
+opened pilot (measured at mid-wall), and each one sits in a boss twice the
+plate thickness.
+
+| Plate | Servo | Notch | Pilots opened into the notch |
+|---|---|---|---|
+| `tilt_ring_mg90s` (roll) | MG90S | 6.0 mm wide, 1.1 mm past the cut-out (1.5 mm past the body end) | the one spline-end pilot (it's on the centreline) |
+| `striker_stand` (cam) | MG90S | same | same |
+| `pan_yoke` (tilt) | DS3240 | 8.0 mm wide, out to the tab end (7 mm past the body) | both spline-end pilots, inner side |
+| `base` (pan) | DS3240 | same | same |
+
+The MG90S notch is short because the spline-end screw sits on the centreline,
+only ~1 mm past the body. If the cable still catches, there are two options:
+- put the servo in from the other face (both faces are chamfered)
+- lower `MOUSE_EAR_MIN_ARC` and give `wire_notch` a depth in mm. The build
+  refuses a notch that opens a pilot past the limit.
+
+**Which face each servo goes in from.** Turn each servo so the spline end (the
+cable end) lines up with the notch.
+
+| Servo | Plate | Goes in from | |
+|---|---|---|---|
+| roll MG90S | tilt ring, +X plate | inside the ring (the tab face), bottom first | the outer face also works (chamfered) |
+| tilt DS3240 | yoke, +Y upright | the inner face (toward the ring), bottom first | tab face only |
+| pan DS3240 | base, top plate | from above, bottom first | tab face only |
+| cam MG90S | striker stand plate | the cam side (the tab face), bottom first | the other face also works (chamfered) |
+
+**Volume**, for the parts that were lightened or thickened:
+
+| Part | Before (cm³) | After (cm³) | Change |
+|---|---|---|---|
+| `tilt_ring_mg90s` | 49.2 | 40.7 | −17 % |
+| `pan_yoke` | 74.7 | 64.5 | −14 % |
+| `base` | 54.9 | 36.0 | −34 % |
+| `striker_stand` | 27.2 | 24.2 | −11 % |
+| **those four** | **206.0** | **165.4** | **−20 %** |
+| `stack_middle_deck` | 21.3 | 27.7 | +30 % (stronger walls) |
+| `stack_top_deck` / `stack_bottom_deck` | 16.4 / 11.8 | 16.6 / 12.1 | bolt bosses |
+
+**Envelope:** each middle-deck wall is 2 mm thicker. That makes the ring 4 mm
+longer, puts the roll servo 2 mm further out and drops the yoke floor 2 mm.
+The rig is now about 137 x 236 x 194 mm (was 132 x 236 x 192). The tilt range
+with the striker fitted is unchanged.
+
+**Not changed:**
+- The tilt ring still needs supports: it's a closed frame, and its bars float
+  above the bed.
+- The tilt ring's DS3240 horn-arm pilots keep 3.5 mm behind the pocket floor.
+  There's no room to thicken them: the horn is on the outside and the roll
+  sweep margin is on the inside.
+- The striker-stand pilots in the yoke's idler upright stay at the upright's
+  6.4 mm. Only 1.5 mm separates it from the ring, so the stand side got the
+  bosses instead.
 
 ## Print list
 
@@ -222,18 +304,18 @@ the taps well. **The striker bar must be PETG.**
 
 | STL | Qty | Nozzle | Orientation on the bed | Notes |
 |---|---|---|---|---|
-| `stack_bottom_deck` | 1 | 0.4 preferred | flat | slots must pass M2.5; on 0.6, regenerate with `SWIRLY_SLOT=2.95` |
-| `stack_middle_deck` | 1 | 0.4 preferred | flat, end walls up | carries the roll horn and axle; slot note as above |
+| `stack_bottom_deck` | 1 | 0.4 preferred | flat, **bolt bosses up** (upside down) | slots must pass M2.5; on 0.6, regenerate with `SWIRLY_SLOT=2.95` |
+| `stack_middle_deck` | 1 | 0.4 preferred | flat, end walls up | carries the roll horn and axle. The horn pocket has 45° roofs and the access hole is a teardrop, so no supports; slot note as above |
 | `stack_top_deck` | 1 | 0.4 preferred | flat, roof up | the roof flare is 45°, so no supports; slot note as above |
 | `stack_spine_lower` | 1 | 0.6 | on its 36 x 7 face | **11.1 mm** tall (bottom ↔ middle deck) |
 | `stack_spine_upper` | 1 | 0.6 | on its 36 x 7 face | **17.1 mm** tall (middle ↔ top deck); 25 mm in `variants/tall_top` |
-| `tilt_ring_mg90s` | 1 | 0.6 | flat | **needs supports** under the side bars and bearing plate (they sit ~13–18 mm up); drill the 1.7 mm servo pilots |
-| `pan_yoke` | 1 | 0.6 | on its side (32 mm face down) | the U profile lies flat, so no supports; ream the 623 pocket if tight |
-| `base` | 1 | 0.6 | on its closed end wall | open box, no supports |
-| `striker_stand` | 1 | 0.6 | front plate (the face that bolts to the yoke) down | rails and webs stand vertical; drill the small pilots |
+| `tilt_ring_mg90s` | 1 | 0.6 | flat | **still needs supports** under the side bars and bearing plate (they sit ~10–15 mm up; it's a closed frame). Windows, bosses and pocket roofs are all 45°. Drill the 1.7 mm servo pilots |
+| `pan_yoke` | 1 | 0.6 | on its side (32 mm face down) | the U profile lies flat, so no supports; windows have 45° tops (either side down); ream the 623 pocket if tight |
+| `base` | 1 | 0.6 | on its closed end wall | open box, no supports; windows have 45° tops |
+| `striker_stand` | 1 | 0.6 | front plate (the face that bolts to the yoke) down | rails and webs stand vertical, web windows are triangles; drill the small pilots |
 | `striker_bar` | 1 | 0.4 preferred | **on its side** (profile flat, 16 mm tall) | **PETG**, 100 % infill. Its 3.0 mm thickness sets the force (force goes as thickness cubed, so ±0.1 mm is about ±10 %) |
 | `striker_pawl` | 1 | **0.4 needed** | flat on a 4.4 mm face | 1.9 mm pin hole must swing freely; pin is 1.75 mm filament |
-| `striker_cam` | 1 | 0.4 preferred | flat | takes a stock horn trimmed to 14 mm; a crisp cliff edge gives a clean drop |
+| `striker_cam` | 1 | 0.4 preferred | flat, **horn pocket up** | takes a stock horn trimmed to 14 mm; a crisp cliff edge gives a clean drop |
 | `striker_cam_spline` | (alt.) | **0.4 needed** | counterbored face down, hub up | 21T socket moulded in; use instead of `striker_cam` |
 | `horn_mg90s_printed` | 0–1 | **0.4 needed** (0.25 better) | arm down, socket up | 0.3 mm deep spline teeth; only if the stock roll horn doesn't fit |
 | `horn_ds3240_printed` | 0–2 | **0.4 needed** | arm down, socket up | only if the stock tilt/pan horns don't fit |
@@ -252,6 +334,53 @@ before printing the others (`SPLINE_CLEAR`).
 **Spine names were swapped before 2026-10-10.** Older exports of
 `stack_spine_lower` were really the 17.1 mm upper spine, and vice versa.
 Check the height before using an older print.
+
+## Assembly order
+
+Centre every servo (power it at mid travel) before you fit its horn. Each
+horn goes on the same way: screw the horn to the part, press it onto the
+spline, then drive the centre screw through the part's access hole.
+
+1. **Test-fit each servo in its plate** before anything else. Put it in
+   bottom first, from the face in the table above, with the cable end at the
+   notch. Drill the pilots if they're tight.
+2. **Base:** drop the pan DS3240 into the base from above. The cable leaves
+   through the open +X end. Fit the 4 tab screws, then screw the base to the
+   bench.
+3. **Yoke:**
+   - Put the tilt DS3240 into the +Y upright from the inside (bottom first,
+     outward). Fit its 4 tab screws.
+   - Press a 623 into the -Y upright from the outside.
+   - Screw the pan horn into the underside pocket and press it onto the pan
+     spline. Drive its centre screw down through the floor's access hole now,
+     while nothing is above it.
+4. **Tilt ring:**
+   - Put the roll MG90S into the +X plate from inside the ring. Fit its 2 tab
+     screws.
+   - Press a 623 into the -X bearing plate from the outside.
+   - Screw the tilt horn into the +Y bar's pocket.
+5. **Sensor stack:**
+   - Fit the boards to the decks.
+   - Stack the decks: bottom deck (bosses down), lower spine, middle deck,
+     upper spine, top deck (bosses up). Clamp them with the two M3 bolts.
+   - Screw the roll horn to the middle deck's +X wall.
+6. **Stack into the ring:**
+   - Press the roll horn onto the MG90S spline and fit its centre screw
+     through the wall's access hole.
+   - At the -X end, fit an M3 x 12 + washer through the ring's 623 into the
+     middle deck's axle boss.
+7. **Ring into the yoke:**
+   - Press the tilt horn onto the tilt spline and fit its centre screw through
+     the bar's access hole.
+   - At -Y, fit an M3 x 12 + washer through the yoke's 623 into the ring's
+     axle boss.
+8. **Striker:**
+   - Put the cam MG90S into the stand from the cam side. Fit its 2 tab screws.
+   - Screw the bar's pad down from under the seat (2 x M3).
+   - Pin the pawl with filament.
+   - Fit the cam with the servo at 0°.
+   - Bolt the stand to the yoke's -Y upright (4 x M3 x 14). This covers the
+     tilt axle screw, so fit the stand last.
 
 ## Variants
 
