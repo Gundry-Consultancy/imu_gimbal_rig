@@ -24,12 +24,12 @@ cutoff.
 
 | Qty | Item | Price | Covers |
 |---|---|---|---|
-| 2 | [400 pcs M2.5 nylon standoff kit (B0GTK7HQDJ)](https://www.amazon.co.uk/dp/B0GTK7HQDJ) | £7.99 each | all board fixings (non-magnetic). Each kit lists 20 x M2.5x12, 20 x M2.5x8, 20 x M2.5x20 screws, 60 nuts, 100 washers (2.5 x 5 x 1 mm), 20 x 10 mm F-F standoffs and M-F standoffs. Two kits cover all 18 board positions with spares |
+| 1 | [400 pcs M2.5 nylon standoff kit (B0GTK7HQDJ)](https://www.amazon.co.uk/dp/B0GTK7HQDJ) | £7.99 | M2.5 x 12 nylon screws for the boards: 20, plus 16 of its M2.5 x 20 cut to 12 mm (36 for 9 boards). Also has 10 mm F-F standoffs and M2.5 x 8 for the wing. Buy 2 to avoid cutting. Plain bags of M2.5 x 12 nylon only ship 24–30 Oct. You already have other nylon M2.5 parts. |
 | 1 | [640 pcs M3 socket cap kit, 304 stainless, 6–30 mm + nuts + washers (B0FHJMDC2D)](https://www.amazon.co.uk/dp/B0FHJMDC2D) | £6.29 | M3 x 10 (stand, DS3240 tabs, printed-horn centres), x 12 (axles), x 16 (striker pad, bench), x 25 (`tall_top` pad), nuts, washers |
 | 1 | [M3 x 50 socket cap, 304 stainless, 20-pack (B0FLYHPK3J)](https://www.amazon.co.uk/dp/B0FLYHPK3J) | £5.99 | the two stack bolts. These also work for `tall_top` (46.1 mm grip): use one washer and the nut still fully engages |
 | (opt.) | [M2 x 10 pan head, 304 stainless, 100-pack (B0FJFY1CGX)](https://www.amazon.co.uk/dp/B0FJFY1CGX) | £5.29 | centre screws for a printed MG90S horn / `striker_cam_spline` only. Stock horns use the servo's own screw |
 
-That's about **£28** (or about £33 with the M2 screws).
+That's about **£20** (or about £25 with the M2 screws).
 
 **How the kit changes the board fixings:**
 - Use M2.5 x 12 screws instead of x 10.
