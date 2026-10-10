@@ -175,8 +175,8 @@ the taps well. **The striker bar must be PETG.**
 | `stack_bottom_deck` | 1 | 0.4 preferred | flat | slots must pass M2.5; on 0.6, regenerate with `SWIRLY_SLOT=2.95` |
 | `stack_middle_deck` | 1 | 0.4 preferred | flat, end walls up | carries the roll horn and axle; slot note as above |
 | `stack_top_deck` | 1 | 0.4 preferred | flat, roof up | the roof flare is 45°, so no supports; slot note as above |
-| `stack_spine_lower` | 1 | 0.6 | on its 36 x 7 face | |
-| `stack_spine_upper` | 1 | 0.6 | on its 36 x 7 face | |
+| `stack_spine_lower` | 1 | 0.6 | on its 36 x 7 face | **11.1 mm** tall (bottom ↔ middle deck) |
+| `stack_spine_upper` | 1 | 0.6 | on its 36 x 7 face | **17.1 mm** tall (middle ↔ top deck); 20 mm in `variants/tall_top` |
 | `tilt_ring_mg90s` | 1 | 0.6 | flat | **needs supports** under the side bars and bearing plate (they sit ~13–18 mm up); drill the 1.7 mm servo pilots |
 | `pan_yoke` | 1 | 0.6 | on its side (32 mm face down) | the U profile lies flat, so no supports; ream the 623 pocket if tight |
 | `base` | 1 | 0.6 | on its closed end wall | open box, no supports |
@@ -198,6 +198,16 @@ the taps well. **The striker bar must be PETG.**
 The core set is 12 parts, plus the optional printed horns. Print the horns
 with fine layers (0.1–0.12 mm). Print one horn first and test it on a servo
 before printing the others (`SPLINE_CLEAR`).
+
+**Spine names were swapped before 2026-10-10.** Older exports of
+`stack_spine_lower` were really the 17.1 mm upper spine, and vice versa.
+Check the height before using an older print.
+
+## Variants
+
+| Folder | What's different |
+|---|---|
+| [`variants/tall_top`](variants/tall_top/README.md) | Upper spine 20 mm. The top deck, roof and striker sit 2.9 mm higher. Only `stack_spine_upper` and `striker_stand` are new prints. |
 
 ## Files
 

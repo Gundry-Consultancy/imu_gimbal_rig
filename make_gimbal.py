@@ -21,6 +21,8 @@ The servo, bearing and board solids are reference envelopes for clearance
 checks. They are not printed.
 """
 
+import json
+import json
 import math
 import os
 import sys
@@ -34,7 +36,12 @@ sys.path.insert(0, HERE)
 import make_sensor_stack as ss  # noqa: E402
 
 V = App.Vector
-PARTS_DIR = os.path.join(HERE, "parts")
+# GIMBAL_OUT: output folder for a design variant (default: this folder). GIMBAL_PIN: a
+# build_info.json from the base build; its ring / yoke sizes are reused so a variant
+# leaves the gimbal untouched (the clearance checks still run against it).
+OUT_DIR = os.environ.get("GIMBAL_OUT", HERE)
+PARTS_DIR = os.path.join(OUT_DIR, "parts")
+PIN = os.environ.get("GIMBAL_PIN")
 
 # --- servos ---------------------------------------------------------------
 # Measured by hand 2026-10-08 (see docs/servo-measurements.png). Letters match the drawing.
@@ -246,7 +253,7 @@ def sensor_body():
     boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + ss.WALL_T - 0.5)
     for c in (horn, boss, pilot):
         c.translate(up)
-    upper, lower = ss.spines()
+    lower, upper = ss.spines()
     parts = [("stack_middle_deck", ss.middle_deck(horn, boss, pilot)),
              ("stack_top_deck", ss.top_deck()),
              ("stack_bottom_deck", ss.bottom_deck()),
@@ -426,18 +433,30 @@ def build(variants=(MG90S_TAB,), check=True):
     roll_parts = [shp for _, shp in stack_parts] + [b for _, b in board_refs]
     roll_r = max_radius(roll_parts, (1, 0, 0))
     ring_in_y = roll_r + SWEEP_MARGIN
-    print(f"roll sweep radius {roll_r:.1f} -> ring inner {ring_in_y:.1f}", flush=True)
+    pinned = json.load(open(PIN)) if PIN else None
+    if pinned:
+        print(f"roll sweep radius {roll_r:.1f} (pinned ring inner {pinned['ring_in_y']:.1f})", flush=True)
+        assert roll_r + SWEEP_MARGIN <= pinned["ring_in_y"] + 1e-6, "variant stack no longer fits the base ring"
+        ring_in_y = pinned["ring_in_y"]
+    else:
+        print(f"roll sweep radius {roll_r:.1f} -> ring inner {ring_in_y:.1f}", flush=True)
 
     rings = {tab: tilt_ring(mg90s(tab), ring_in_y) for tab in variants}
     tilt_r = max(max_radius(roll_parts + list(r), (0, 1, 0)) for r in rings.values())
     tilt_clear_r = tilt_r + 3.0
+    if pinned:
+        assert tilt_clear_r <= pinned["tilt_clear_r"] + 1e-6, "variant no longer fits the base yoke"
+        tilt_clear_r = pinned["tilt_clear_r"]
     print(f"tilt sweep radius {tilt_r:.1f} -> yoke floor at z={-tilt_clear_r:.1f}", flush=True)
+    with open(os.path.join(OUT_DIR, "build_info.json"), "w") as f:
+        json.dump(dict(ring_in_y=ring_in_y, tilt_clear_r=tilt_clear_r, stack_gaps=list(ss.GAPS),
+                       roof_raise=ss.roof_raise()), f, indent=1)
 
     yoke, tilt_servo, yoke_brg, yoke_floor_bot, upright_out_y = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
     base_shape, pan_servo = base(yoke_floor_bot)
 
     import make_striker as mk
-    st = mk.build(dict(upright_out_y=upright_out_y, roof_z=ss.roof_top() - ss.axis_z(),
+    st = mk.build(dict(upright_out_y=upright_out_y, roof_z=ss.roof_top() - ss.axis_z(), roof_raise=ss.roof_raise(),
                        upright_half_x=YOKE_HALF_X, stand_bolts=STAND_BOLTS), _self_module())
     print("striker", st["info"], flush=True)
 
@@ -500,7 +519,7 @@ def build(variants=(MG90S_TAB,), check=True):
     add("StrikerBarParked", st["bar_park"], "REF striker bar parked (lifted)", visible=False)
     add("StrikerBarFree", st["bar_free"], "REF striker bar as printed (free shape)", visible=False)
     doc.recompute()
-    path = os.path.join(HERE, "imu-gimbal-assembly.FCStd")
+    path = os.path.join(OUT_DIR, "imu-gimbal-assembly.FCStd")
     doc.saveAs(path)
     print("wrote", path, flush=True)
 

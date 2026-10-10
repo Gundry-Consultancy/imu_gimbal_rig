@@ -57,7 +57,10 @@ HEADROOM = 3.0
 
 QT_STACK_H = QT_SPACER + PCB_T + PLUG[2]
 WING_STACK_H = WING_STANDOFF + PCB_T + PARTS_H
-GAPS = (QT_STACK_H + HEADROOM, WING_STACK_H + HEADROOM)   # above bottom deck, above middle deck
+BASE_GAPS = (QT_STACK_H + HEADROOM, WING_STACK_H + HEADROOM)   # above bottom deck, above middle deck
+# Variant: a taller upper spine (top deck higher). The middle deck, its walls and the
+# roll axis stay put; only the upper spine grows and the top deck + roof rise.
+GAPS = (BASE_GAPS[0], float(os.environ.get("STACK_UPPER_GAP", BASE_GAPS[1])))
 
 POST = 9.0
 ROOF = 24.0
@@ -69,22 +72,29 @@ WALL_HALF_Y = 19.0
 HUB_R = 11.0
 
 
-def deck_z():
+def deck_z(gaps=None):
     """(bottom, top) of bottom, middle and top decks; bottom deck underside at z = 0."""
+    gaps = gaps or GAPS
     b = (0.0, DECK_T)
-    m0 = b[1] + GAPS[0]
+    m0 = b[1] + gaps[0]
     m = (m0, m0 + MID_T)
-    t0 = m[1] + GAPS[1]
+    t0 = m[1] + gaps[1]
     return [b, m, (t0, t0 + DECK_T)]
 
 
-def roof_top():
-    return deck_z()[2][1] + ROOF_H
+def roof_top(gaps=None):
+    return deck_z(gaps)[2][1] + ROOF_H
+
+
+def roof_raise():
+    """How much higher the roof is than in the base design."""
+    return roof_top() - roof_top(BASE_GAPS)
 
 
 def axis_z():
-    """Roll axis height: middle of the stack, but at least a hub radius above the middle deck."""
-    return max(roof_top() / 2, deck_z()[1][1] + HUB_R)
+    """Roll axis height: middle of the BASE stack, but at least a hub radius above the middle deck.
+    Fixed by the base design so a taller upper spine doesn't move the middle deck or the gimbal."""
+    return max(roof_top(BASE_GAPS) / 2, deck_z(BASE_GAPS)[1][1] + HUB_R)
 
 
 def body_half_x():

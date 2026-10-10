@@ -330,8 +330,10 @@ def build(g, mg):
     y_cam = y_uo - STAND_T - 1.0 - r_guess
     y_pad_front = y_cam - r_guess - 2.0
     y_c = y_pad_front - PAD_LEN
-    t = BAR_T or solve_thickness(y_c, y_tip, y_cam, PAD_SEAT_TOP)
-    bar = Bar(y_c, y_tip, y_cam, PAD_SEAT_TOP, t)
+    # the whole mechanism rides up with the roof: only the stand's pad seat (and servo-plate leg) grow
+    pad_seat_top = PAD_SEAT_TOP + g.get("roof_raise", 0.0)
+    t = BAR_T or solve_thickness(y_c, y_tip, y_cam, pad_seat_top)
+    bar = Bar(y_c, y_tip, y_cam, pad_seat_top, t)
 
     free = bar.free()
     inst = bar.inst
@@ -382,7 +384,7 @@ def build(g, mg):
     front = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_uo - STAND_T, y_uo, STAND_BOTTOM, RAIL_TOP)
     rails = [mg.box(x0, x1, y_back, y_uo - STAND_T + 0.01, RAIL_TOP - 5, RAIL_TOP)
              for x0, x1 in ((-RAIL_X - RAIL_W, -RAIL_X), (RAIL_X, RAIL_X + RAIL_W))]
-    seat = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_back, y_c + PAD_LEN, RAIL_TOP - 5, PAD_SEAT_TOP)
+    seat = mg.box(-RAIL_X - RAIL_W, RAIL_X + RAIL_W, y_back, y_c + PAD_LEN, RAIL_TOP - 5, pad_seat_top)
     webs = []
     for x0 in (-RAIL_X - RAIL_W, RAIL_X):
         pts = [V(x0, y_uo - STAND_T + 0.01, STAND_BOTTOM), V(x0, y_uo - STAND_T + 0.01, RAIL_TOP - 4.99),
