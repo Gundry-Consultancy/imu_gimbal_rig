@@ -1,0 +1,467 @@
+# -*- coding: utf-8 -*-
+"""Mechanism animation for imu-gimbal-motion.FCStd: pan, tilt, roll and the striker's
+cam -> pawl -> drive leaf -> hammer arm -> head-leaf tap cycle.
+
+Run it from FreeCAD: Macro > Macros... > animate_motion.FCMacro > Execute.
+
+It opens the motion document as a temporary copy, so the saved file is never written, or
+uses it if it is already open and then puts every placement, shape, visibility and colour
+back when you stop. Nothing is keyframed by eye: the timeline in the document
+(MotionData.TimelineJSON) was sampled by make_motion.py from striker_motion.py, which works
+from make_striker's model (cam profile and LOBES, drive-leaf cantilever, pawl, pivot and
+lever, masses, head leaf). This macro only interpolates it and poses the bodies:
+
+- gimbal and rigid striker parts: the App::Part components are placed by forward kinematics
+  about the same joint axes and points as the Assembly's joints;
+- the drive leaf flexes: its shape is swapped for the precomputed one at the nearest whole
+  degree of arm angle (MotionData > Striker flex states), and the pawl and its pin ride on
+  the leaf's station at the pawl lugs (exact, from the leaf model);
+- the head leaf flexes during let-off: the arm's shape is swapped for the one with the head
+  leaf bent the nearest 0.5 mm.
+
+Dialog: |<  <  Play/Pause  >  >|, a time slider (scrub), a section list (double-click to
+jump), a speed slider (0.1x to 4x), Stop and restore. The caption (section, time, joint and
+cam angles, slow-motion factor) shows in the dialog, the status bar and the 3D view.
+Console (after running the macro once):
+    MotionAnim.goto(12.5); MotionAnim.play(); MotionAnim.pause(); MotionAnim.speed = 0.5
+    MotionAnim.stop()            # restores the document and closes the dialog
+
+Dry run (no GUI):
+    freecadcmd -c "exec(open('docs/motion/animate_motion.FCMacro').read(), {'__name__': '__main__',
+    'DRY_RUN': True, '__file__': 'docs/motion/animate_motion.FCMacro'})"
+plays every frame headless, checks that the arm angle on screen equals the timeline's
+cam-derived value, and that the document is restored exactly. check_motion.py adds the
+model cross-check, the collision check and the parked-tilt clearance.
+"""
+
+import bisect
+import json
+import math
+import os
+
+import FreeCAD as App
+
+V = App.Vector
+DOC_FILE = "imu-gimbal-motion.FCStd"
+FPS = 30
+BODIES = ("Base", "Yoke", "Tower", "Ring", "Stack", "Cam", "Arm", "Leaf", "Pawl")
+PARENT = {"Yoke": "Base", "Tower": "Yoke", "Ring": "Yoke", "Stack": "Ring", "Cam": "Tower", "Arm": "Tower",
+          "Leaf": "Tower", "Pawl": "Leaf"}
+JOINT_OF = {"Yoke": "Pan", "Ring": "Tilt", "Stack": "Roll", "Cam": "Cam", "Arm": "ArmPivot", "Pawl": "PawlPin",
+            "Tower": "TowerFix", "Leaf": "LeafRoot"}
+STATE_OF = {"Pan": "pan", "Tilt": "tilt", "Roll": "roll", "Cam": "theta", "ArmPivot": "phi", "PawlPin": "alpha"}
+
+
+# --- timeline and kinematics (pure: used by the GUI, the dry run, check_motion.py and the renderer) -----------
+class Timeline:
+    """The sampled programme: state(T) interpolates every column at animation time T (s)."""
+
+    def __init__(self, tl):
+        self.cols = tl["columns"]
+        self.rows = tl["rows"]
+        self.segments = tl["segments"]
+        self.events = tl.get("events", [])
+        self.duration = tl["duration"]
+        self.T = [r[0] for r in self.rows]
+
+    def state(self, T):
+        T = min(max(T, 0.0), self.duration)
+        i = max(0, min(bisect.bisect_right(self.T, T) - 1, len(self.rows) - 2))
+        a, b = self.rows[i], self.rows[i + 1]
+        f = 0.0 if b[0] <= a[0] else min(1.0, max(0.0, (T - a[0]) / (b[0] - a[0])))
+        s = {c: a[k] + (b[k] - a[k]) * f for k, c in enumerate(self.cols)}
+        s["T"] = T
+        s["seg"] = int(a[8]) if f < 1.0 else int(b[8])
+        if a[8] != b[8]:
+            s["phys_ms"], s["slow"] = -1.0, 0.0
+        return s
+
+    def caption(self, s):
+        g = self.segments[s["seg"]]
+        sub = (f"pan {s['pan']:6.1f}  tilt {s['tilt']:6.1f}  roll {s['roll']:6.1f}  |  cam {s['theta']:6.1f}  "
+               f"arm {s['phi']:5.1f}  pawl fold {s['alpha']:5.1f}  head leaf {s['x']:4.2f} mm")
+        if s["slow"] > 0:
+            sub += f"  |  {s['phys_ms']:5.1f} ms after the step (slow motion x{s['slow']:.0f})"
+        return f"{g['section']}: {g['caption']}", f"t = {s['T']:5.2f} s   " + sub
+
+
+class Rig:
+    """Poses the bodies for a timeline state, from the model data in MotionData.ModelJSON."""
+
+    def __init__(self, model):
+        self.m = model
+        self.st = model["stations"]
+        self.dphi = model["phi_step"]
+        self.leaf_grid = model["leaf_grid"]
+        self.arm_grid = model["arm_grid"]
+
+    def rel(self, joint, deg):
+        j = self.m["joints"][joint]
+        return App.Placement(V(), App.Rotation(V(*j["axis"]), deg), V(*j["point"]))
+
+    def station(self, phi):
+        phi = min(max(phi, 0.0), self.dphi * (len(self.st) - 1))
+        i = min(int(phi / self.dphi), len(self.st) - 2)
+        f = (phi - i * self.dphi) / self.dphi
+        a, b = self.st[i], self.st[i + 1]
+        return [a[k] + (b[k] - a[k]) * f for k in range(3)]
+
+    def leaf_carry(self, phi):
+        """Rigid motion of the leaf's pawl-lug station from rest to the arm angle phi."""
+        s0, s = self.st[0], self.station(phi)
+        return App.Placement(V(0, s[0] - s0[0], s[1] - s0[1]), App.Rotation(V(1, 0, 0), math.degrees(s[2] - s0[2])),
+                             V(0, s0[0], s0[1]))
+
+    def pose(self, s):
+        """dict: body -> component placement, 'PawlPin' -> its carry, 'leaf'/'arm' -> state shape names."""
+        out = {"Base": App.Placement()}
+        for body in ("Yoke", "Tower", "Ring", "Stack", "Cam", "Arm", "Leaf", "Pawl"):
+            j = JOINT_OF[body]
+            ang = s[STATE_OF[j]] if j in STATE_OF else 0.0
+            rel = self.rel(j, ang)
+            if body == "Pawl":
+                rel = self.leaf_carry(s["phi"]).multiply(rel)
+            out[body] = out[PARENT[body]].multiply(rel)
+        out["PawlPin"] = self.leaf_carry(s["phi"])
+        out["leaf"] = min(self.leaf_grid, key=lambda g: abs(g[0] - s["phi"]))[1]
+        out["arm"] = min(self.arm_grid, key=lambda g: abs(g[0] - s["x"]))[1]
+        return out
+
+
+# --- document handling ------------------------------------------------------------------------------------
+def _macro_dir():
+    try:
+        return os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        return App.ParamGet("User parameter:BaseApp/Preferences/Macro").GetString("MacroPath", "")
+
+
+def open_motion_doc(path=None):
+    """(doc, owned): the motion document if it is already open (owned = False: restored on stop),
+    else a temporary copy of the saved file (owned = True: closed on stop; the file is never written)."""
+    import shutil
+    import tempfile
+    if not App.GuiUp:              # headless: let the Simulation objects' module import (it names QtCore)
+        import builtins
+        from PySide import QtCore
+        builtins.QtCore = getattr(builtins, "QtCore", QtCore)
+    for d in App.listDocuments().values():
+        if d.getObject("MotionData") and hasattr(d.getObject("MotionData"), "TimelineJSON"):
+            return d, False
+    path = path or os.path.join(_macro_dir(), DOC_FILE)
+    if not os.path.exists(path) and App.GuiUp:
+        from PySide import QtGui
+        path = QtGui.QFileDialog.getOpenFileName(None, "Motion document", _macro_dir(), "FreeCAD (*.FCStd)")[0]
+    tmp = os.path.join(tempfile.mkdtemp(prefix="gimbal_motion_"), os.path.basename(path))
+    shutil.copy(path, tmp)
+    return App.openDocument(tmp), True
+
+
+class Snapshot:
+    """Everything the animation touches, so it can be put back exactly."""
+
+    def __init__(self, doc, comps, objs):
+        self.pl = {o.Name: App.Placement(o.Placement) for o in list(comps.values()) + objs}
+        self.shapes = {o.Name: o.Shape.copy() for o in objs if o.Name in ("StrikerSpring", "StrikerArm")}
+        self.vis = {o.Name: o.Visibility for o in doc.Objects}
+        self.view = {}
+        if App.GuiUp:
+            for o in doc.Objects:
+                vo = o.ViewObject
+                if vo and hasattr(vo, "ShapeColor"):
+                    self.view[o.Name] = (vo.ShapeColor, vo.Transparency)
+
+    def restore(self, doc):
+        for name, shp in self.shapes.items():
+            doc.getObject(name).Shape = shp           # (sets the placement too: restored next)
+        for name, pl in self.pl.items():
+            doc.getObject(name).Placement = pl
+        for name, vis in self.vis.items():
+            o = doc.getObject(name)
+            if o and o.Visibility != vis:
+                o.Visibility = vis
+        for name, (col, tr) in self.view.items():
+            doc.getObject(name).ViewObject.ShapeColor, doc.getObject(name).ViewObject.Transparency = col, tr
+
+
+class Player:
+    """Drives the document along the timeline. apply(T) is the single place that moves things."""
+
+    def __init__(self, doc, owned=False):
+        self.doc, self.owned = doc, owned
+        data = doc.getObject("MotionData")
+        self.tl = Timeline(json.loads(data.TimelineJSON))
+        self.model = json.loads(data.ModelJSON)
+        self.rig = Rig(self.model)
+        self.comps = {b: doc.getObject(f"Body_{b}") for b in BODIES}
+        self.leaf_obj, self.arm_obj, self.pin_obj = (doc.getObject(n) for n in ("StrikerSpring", "StrikerArm", "PawlPin"))
+        self.snap = Snapshot(doc, self.comps, [self.leaf_obj, self.arm_obj, self.pin_obj])
+        self.pin_rest = App.Placement(self.pin_obj.Placement)
+        self.states = {n: doc.getObject(n).Shape for _, n in self.rig.leaf_grid + self.rig.arm_grid}
+        self.cur_shape = {"leaf": self.rig.leaf_grid[0][1], "arm": self.rig.arm_grid[0][1]}
+        self.T, self.speed, self.playing = 0.0, 1.0, False
+        self.listeners = []
+        self.state = None
+
+    @property
+    def duration(self):
+        return self.tl.duration
+
+    def apply(self, T):
+        self.T = min(max(T, 0.0), self.duration)
+        s = self.tl.state(self.T)
+        p = self.rig.pose(s)
+        for key, obj in (("leaf", self.leaf_obj), ("arm", self.arm_obj)):
+            if self.cur_shape[key] != p[key]:
+                obj.Shape = self.states[p[key]]            # world-placed shape: its placement comes along
+                self.cur_shape[key] = p[key]
+        for b, c in self.comps.items():
+            if not c.Placement.isSame(p[b], 0.0):
+                c.Placement = p[b]
+        pin = p["PawlPin"].multiply(self.pin_rest)
+        if not self.pin_obj.Placement.isSame(pin, 0.0):
+            self.pin_obj.Placement = pin
+        self.state = s
+        for f in self.listeners:
+            f(self)
+        return s
+
+    def goto(self, T):
+        self.apply(T)
+
+    def segment_start(self, i):
+        return self.tl.segments[i]["t0"]
+
+    def tick(self, dt):
+        """Advance by dt seconds of wall time (scaled by speed); False at the end."""
+        if self.T >= self.duration:
+            return False
+        self.apply(self.T + dt * self.speed)
+        return True
+
+    def restore(self):
+        self.snap.restore(self.doc)
+        self.cur_shape = {"leaf": None, "arm": None}
+
+
+# --- GUI: dialog, timer and a caption in the 3D view -------------------------------------------------------
+class Hud:
+    """Two caption lines in the top-left of the 3D view (Coin overlay; skipped if it fails)."""
+
+    def __init__(self):
+        self.root = None
+        try:
+            from pivy import coin
+            import FreeCADGui as Gui
+            self.sg = Gui.ActiveDocument.ActiveView.getSceneGraph()
+            self.root = coin.SoSeparator()
+            cam = coin.SoOrthographicCamera()
+            cam.viewportMapping = coin.SoCamera.LEAVE_AS_IS
+            self.root.addChild(cam)
+            self.text = []
+            for y, size in ((0.90, 18), (0.83, 13)):
+                pos, col, font, txt = coin.SoTranslation(), coin.SoBaseColor(), coin.SoFont(), coin.SoText2()
+                pos.translation = (-0.95, y, 0)
+                col.rgb = (0.05, 0.05, 0.1)
+                font.size = size
+                sep = coin.SoSeparator()
+                for n in (pos, col, font, txt):
+                    sep.addChild(n)
+                self.root.addChild(sep)
+                self.text.append(txt)
+            self.sg.addChild(self.root)
+        except Exception as e:                       # noqa: BLE001
+            App.Console.PrintWarning(f"motion animation: no 3D-view caption ({e})\n")
+            self.root = None
+
+    def set(self, a, b):
+        if self.root:
+            self.text[0].string, self.text[1].string = a, b
+
+    def remove(self):
+        if self.root:
+            self.sg.removeChild(self.root)
+            self.root = None
+
+
+def apply_colours(doc):
+    """Colours from IntendedColor (documents built headless store them there), and everything
+    of the rig shown (a document saved headless reopens with all of it hidden)."""
+    asm = doc.getObject("Assembly")
+    if asm is not None:
+        asm.Visibility = True
+    for b in BODIES:
+        c = doc.getObject(f"Body_{b}")
+        c.Visibility = True
+        for o in c.Group:
+            o.Visibility = True
+    for o in doc.Objects:
+        if hasattr(o, "IntendedColor") and o.ViewObject:
+            o.ViewObject.ShapeColor = tuple(o.IntendedColor[:3])
+            o.ViewObject.Transparency = 0
+
+
+def run_gui():
+    import FreeCADGui as Gui
+    from PySide import QtCore, QtGui
+
+    doc, owned = open_motion_doc()
+    Gui.setActiveDocument(doc.Name)
+    player = Player(doc, owned)
+    apply_colours(doc)
+    hud = Hud()
+    dlg = QtGui.QDialog(Gui.getMainWindow())
+    dlg.setWindowTitle("Gimbal rig motion")
+    lay = QtGui.QVBoxLayout(dlg)
+    title, sub = QtGui.QLabel(), QtGui.QLabel()
+    for w in (title, sub):
+        w.setWordWrap(True)
+        lay.addWidget(w)
+    f = title.font()
+    f.setBold(True)
+    title.setFont(f)
+    segs = QtGui.QListWidget()
+    for g in player.tl.segments:
+        segs.addItem(f"{g['t0']:5.1f} s  {g['section']}: {g['caption']}")
+    lay.addWidget(segs)
+    scrub = QtGui.QSlider(QtCore.Qt.Horizontal)
+    scrub.setRange(0, int(player.duration * 100))
+    lay.addWidget(scrub)
+    row = QtGui.QHBoxLayout()
+    btn = {k: QtGui.QPushButton(k) for k in ("|<", "<", "Play", ">", ">|")}
+    for b in btn.values():
+        row.addWidget(b)
+    lay.addLayout(row)
+    srow = QtGui.QHBoxLayout()
+    srow.addWidget(QtGui.QLabel("Speed"))
+    speed = QtGui.QSlider(QtCore.Qt.Horizontal)
+    speed.setRange(-10, 6)                     # 2 ** (v / 3): 0.1x .. 4x
+    speed.setValue(0)
+    srow.addWidget(speed)
+    slabel = QtGui.QLabel("1.0x")
+    srow.addWidget(slabel)
+    lay.addLayout(srow)
+    stop = QtGui.QPushButton("Stop and restore")
+    lay.addWidget(stop)
+    timer = QtCore.QTimer(dlg)
+    timer.setInterval(int(1000 / FPS))
+    busy = [False]
+    last_seg = [-1]
+
+    def on_change(p):
+        a, b = p.tl.caption(p.state)
+        title.setText(a)
+        sub.setText(b)
+        hud.set(a, b)
+        busy[0] = True
+        scrub.setValue(int(p.T * 100))
+        busy[0] = False
+        if last_seg[0] != p.state["seg"]:
+            last_seg[0] = p.state["seg"]
+            segs.setCurrentRow(p.state["seg"])
+            Gui.getMainWindow().statusBar().showMessage(a)
+        Gui.updateGui()
+
+    player.listeners.append(on_change)
+
+    def set_playing(on):
+        player.playing = on
+        btn["Play"].setText("Pause" if on else "Play")
+        timer.start() if on else timer.stop()
+
+    def tick():
+        if not player.tick(1.0 / FPS):
+            set_playing(False)
+
+    def step(d):
+        set_playing(False)
+        starts = [g["t0"] for g in player.tl.segments]
+        i = bisect.bisect_right(starts, player.T + (1e-6 if d > 0 else -1e-6)) - 1
+        i = max(0, min(len(starts) - 1, i + (1 if d > 0 else 0)))
+        player.goto(starts[i])
+
+    def finish(*_):
+        timer.stop()
+        hud.remove()
+        player.restore()
+        if player.owned:
+            App.closeDocument(doc.Name)
+        globals().pop("MotionAnim", None)
+
+    timer.timeout.connect(tick)
+    btn["Play"].clicked.connect(lambda: set_playing(not player.playing))
+    btn["<"].clicked.connect(lambda: step(-1))
+    btn[">"].clicked.connect(lambda: step(1))
+    btn["|<"].clicked.connect(lambda: (set_playing(False), player.goto(0.0)))
+    btn[">|"].clicked.connect(lambda: (set_playing(False), player.goto(player.duration)))
+    scrub.valueChanged.connect(lambda v: None if busy[0] else (set_playing(False), player.goto(v / 100.0)))
+    segs.itemDoubleClicked.connect(lambda it: (set_playing(False), player.goto(player.segment_start(segs.row(it)))))
+    speed.valueChanged.connect(lambda v: (setattr(player, "speed", 2 ** (v / 3)), slabel.setText(f"{2 ** (v / 3):.2g}x")))
+    stop.clicked.connect(dlg.close)
+    dlg.finished.connect(finish)
+    player.stop = dlg.close
+    player.play, player.pause = (lambda: set_playing(True)), (lambda: set_playing(False))
+    Gui.activeDocument().activeView().viewIsometric()
+    player.goto(0.0)
+    Gui.SendMsgToActiveView("ViewFit")
+    dlg.show()
+    set_playing(True)
+    return player
+
+
+# --- dry run (headless) ------------------------------------------------------------------------------------
+def arm_angle(player):
+    """Arm angle actually shown: the arm component relative to the tower, as a rotation about the
+    pivot axis (+X); returns (deg, off-axis residual mm at the head)."""
+    rel = player.comps["Tower"].Placement.inverse().multiply(player.comps["Arm"].Placement)
+    r = rel.Rotation
+    ang = math.degrees(r.Angle) * (1 if r.Axis.x >= 0 else -1) if r.Angle > 1e-12 else 0.0
+    P = V(*player.model["joints"]["ArmPivot"]["point"])
+    pure = App.Placement(V(), App.Rotation(V(1, 0, 0), ang), P)
+    head = V(0, 0, player.model["z_roof"] + player.model["hover"])
+    return ang, (rel.multVec(head) - pure.multVec(head)).Length
+
+
+def _shape_key(s):
+    b = s.BoundBox
+    return (round(s.Volume, 6), round(b.XMin, 6), round(b.YMin, 6), round(b.ZMin, 6), round(b.XMax, 6), round(b.YMax, 6),
+            round(b.ZMax, 6))
+
+
+def dry_run(path=None, fps=FPS, frame_hook=None):
+    """Play every frame without a GUI. Checks: the arm angle shown equals the timeline's value at
+    every frame (and sits on the pivot axis), and restore() puts the document back exactly.
+    frame_hook(player, frame_index) is called after each frame (check_motion.py uses it)."""
+    doc, owned = open_motion_doc(path)
+    p = Player(doc, owned)
+    comps = list(p.comps.values()) + [p.leaf_obj, p.arm_obj, p.pin_obj]
+    saved = {o.Name: App.Placement(o.Placement) for o in comps}
+    saved_shapes = {o.Name: _shape_key(o.Shape) for o in (p.leaf_obj, p.arm_obj)}
+    n = int(math.ceil(p.duration * fps))
+    worst_arm, worst_axis, frames = 0.0, 0.0, 0
+    for k in range(n + 1):
+        s = p.apply(min(p.duration, k / fps))
+        ang, res = arm_angle(p)
+        worst_arm = max(worst_arm, abs(ang - s["phi"]))
+        worst_axis = max(worst_axis, res)
+        frames += 1
+        if frame_hook:
+            frame_hook(p, k)
+    p.restore()
+    restored = all(o.Placement.isSame(saved[o.Name], 0.0) for o in comps) and \
+        all(_shape_key(o.Shape) == saved_shapes[o.Name] for o in (p.leaf_obj, p.arm_obj))
+    res = dict(frames=frames, duration=p.duration, max_arm_angle_err_deg=worst_arm, max_arm_off_axis_mm=worst_axis,
+               restored_exact=restored)
+    print("motion dry run:", res, flush=True)
+    if owned:
+        App.closeDocument(doc.Name)
+    return res
+
+
+if __name__ == "__main__":
+    if globals().get("DRY_RUN") or not App.GuiUp:
+        _res = dry_run(globals().get("DOC_PATH"))
+        if not (_res["restored_exact"] and _res["max_arm_angle_err_deg"] < 1e-6 and _res["max_arm_off_axis_mm"] < 1e-6):
+            raise SystemExit("motion animation dry run FAILED")
+    else:
+        MotionAnim = run_gui()

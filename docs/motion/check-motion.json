@@ -1,0 +1,397 @@
+{
+ "dry_run": {
+  "frames": 1147,
+  "duration": 38.2,
+  "max_arm_angle_err_deg": 1.3146705946098791e-11,
+  "max_arm_off_axis_mm": 2.501060800219769e-11,
+  "restored_exact": true
+ },
+ "model_check": {
+  "quasi": 0.00016706863706872355,
+  "release": 8.903339945032229e-05,
+  "fold": 0.0008832217931811215,
+  "inside_cam": 2.842170943040401e-14
+ },
+ "tap_instants": [
+  {
+   "segment": "Single tap: the leaf throws the arm onto its stop, the head lets off to the roof",
+   "arm_on_stop": {
+    "T": 23.8807,
+    "phys_ms": 50.276,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 0.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   },
+   "head_on_roof": {
+    "T": 23.9423,
+    "phys_ms": 51.84,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 5.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   }
+  },
+  {
+   "segment": "Double tap, first tap",
+   "arm_on_stop": {
+    "T": 30.0506,
+    "phys_ms": 50.276,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 0.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   },
+   "head_on_roof": {
+    "T": 30.1019,
+    "phys_ms": 51.84,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 5.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   }
+  },
+  {
+   "segment": "Double tap, second tap (past the 245 cliff)",
+   "arm_on_stop": {
+    "T": 34.0506,
+    "phys_ms": 50.276,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 0.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   },
+   "head_on_roof": {
+    "T": 34.1019,
+    "phys_ms": 51.84,
+    "arm_deg": 0.0,
+    "head_leaf_mm": 5.0,
+    "distance_mm": 0.0,
+    "overlap_mm3": 0.0
+   }
+  }
+ ],
+ "parked_clearance": {
+  "min_mm": 7.899999999999984,
+  "at": {
+   "T": 10.47,
+   "tilt": 82.9,
+   "roll": 0.0
+  },
+  "frames": 300,
+  "need": 5.0,
+  "ok": true,
+  "spin_only_axle_screw_min_mm": 0.9999999999999976,
+  "tower_bolt_tips_min_mm": 3.8999999999999773,
+  "tower_bolt_tips_at": {
+   "T": 10.93,
+   "tilt": 121.0,
+   "roll": 0.0
+  }
+ },
+ "collisions": {
+  "pairs_checked": 11689,
+  "pairs_measured": 4258,
+  "collisions": {},
+  "closest_12_non_designed": [
+   {
+    "mm": 0.85,
+    "pair": "StackMiddleDeck / TiltRing"
+   },
+   {
+    "mm": 0.85,
+    "pair": "PanYoke / TiltRing"
+   },
+   {
+    "mm": 1.0,
+    "pair": "AxleWasherYoke / StrikerStand"
+   },
+   {
+    "mm": 1.047,
+    "pair": "StrikerCam / StrikerSpring"
+   },
+   {
+    "mm": 1.343,
+    "pair": "Horn_striker_cam / StrikerPawl"
+   },
+   {
+    "mm": 1.575,
+    "pair": "AxleWasherRing / TiltRing"
+   },
+   {
+    "mm": 1.575,
+    "pair": "AxleWasherYoke / PanYoke"
+   },
+   {
+    "mm": 1.65,
+    "pair": "PivotBolt / StrikerArm"
+   },
+   {
+    "mm": 1.65,
+    "pair": "AxleScrewYoke / StrikerStand"
+   },
+   {
+    "mm": 1.75,
+    "pair": "AxleScrewRing / TiltRing"
+   },
+   {
+    "mm": 1.75,
+    "pair": "AxleScrewYoke / PanYoke"
+   },
+   {
+    "mm": 2.25,
+    "pair": "DrivePin / StrikerStand"
+   }
+  ],
+  "touching_not_designed": {},
+  "designed": {
+   "StrikerArm / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "arm on its rest stop",
+    "frame_d": 0
+   },
+   "StrikerArm / StrikerBushing": {
+    "min_d": 0.14999999999999147,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "arm hub on the bushing",
+    "frame_d": 0
+   },
+   "StrikerArm / StrikerSpacerA": {
+    "min_d": 0.19999999999998863,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "arm hub between spacers",
+    "frame_d": 0
+   },
+   "StrikerArm / StrikerSpacerB": {
+    "min_d": 0.20000000000000373,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "arm hub between spacers",
+    "frame_d": 0
+   },
+   "StrikerSpring / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "leaf pad on the seat",
+    "frame_d": 0
+   },
+   "PadScrew0 / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 7.051095271471903,
+    "frame_vol": 0,
+    "section": "Start",
+    "designed": "leaf pad screws in the seat",
+    "frame_d": 0
+   },
+   "PadScrew1 / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 7.051095271471903,
+    "frame_vol": 0,
+    "section": "Start",
+    "designed": "leaf pad screws in the seat",
+    "frame_d": 0
+   },
+   "PadScrew2 / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 7.05109527147204,
+    "frame_vol": 0,
+    "section": "Start",
+    "designed": "leaf pad screws in the seat",
+    "frame_d": 0
+   },
+   "PadScrew3 / StrikerStand": {
+    "min_d": 0.0,
+    "max_vol": 7.05109527147204,
+    "frame_vol": 0,
+    "section": "Start",
+    "designed": "leaf pad screws in the seat",
+    "frame_d": 0
+   },
+   "StrikerCam / StrikerPawl": {
+    "min_d": 0.0,
+    "max_vol": 0.9287624588311758,
+    "frame_vol": 753,
+    "section": "4 Striker",
+    "designed": "pawl on the cam",
+    "frame_d": 36
+   },
+   "StrikerArm / StrikerSpring": {
+    "min_d": 0.3999999999999888,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "tail in the fork",
+    "frame_d": 42
+   },
+   "DrivePin / StrikerSpring": {
+    "min_d": 0.0,
+    "max_vol": 27.437028303922773,
+    "frame_vol": 858,
+    "section": "4 Striker",
+    "designed": "drive pin in the leaf's slot",
+    "frame_d": 51
+   },
+   "StrikerPawl / StrikerSpring": {
+    "min_d": 0.0,
+    "max_vol": 2.6032849788199326,
+    "frame_vol": 36,
+    "section": "Start",
+    "designed": "pawl on its stop / lugs",
+    "frame_d": 36
+   },
+   "PawlPin / StrikerPawl": {
+    "min_d": 0.12499999999638634,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "pawl on its pin",
+    "frame_d": 0
+   },
+   "Horn_striker_cam / StrikerServo": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "Start",
+    "designed": "cam horn on its spline",
+    "frame_d": 21
+   },
+   "HornCentre_striker_cam / StrikerServo": {
+    "min_d": 0.0,
+    "max_vol": 4.457919975443917,
+    "frame_vol": 21,
+    "section": "Start",
+    "designed": "cam screw",
+    "frame_d": 21
+   },
+   "Horn_pan_yoke / PanServo": {
+    "min_d": 1.4210854715202004e-14,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "1 Pan",
+    "designed": "pan horn on its spline",
+    "frame_d": 80
+   },
+   "HornCentre_pan_yoke / PanServo": {
+    "min_d": 0.0,
+    "max_vol": 27.8784932079559,
+    "frame_vol": 80,
+    "section": "1 Pan",
+    "designed": "pan horn screw",
+    "frame_d": 80
+   },
+   "StrikerCam / StrikerServo": {
+    "min_d": 3.2649655434626945,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "1 Pan",
+    "designed": "cam on its spline",
+    "frame_d": 90
+   },
+   "Horn_tilt_ring_mg90s / TiltServo": {
+    "min_d": 7.105427357601002e-15,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "2 Tilt",
+    "designed": "tilt horn on its spline",
+    "frame_d": 260
+   },
+   "HornCentre_tilt_ring_mg90s / TiltServo": {
+    "min_d": 0.0,
+    "max_vol": 27.878493207955785,
+    "frame_vol": 260,
+    "section": "2 Tilt",
+    "designed": "tilt horn screw",
+    "frame_d": 260
+   },
+   "BearingYoke / TiltRing": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "2 Tilt",
+    "designed": "tilt axle boss in the 623",
+    "frame_d": 260
+   },
+   "AxleWasherYoke / BearingYoke": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "2 Tilt",
+    "designed": "tilt axle washer on the inner race",
+    "frame_d": 260
+   },
+   "AxleScrewYoke / BearingYoke": {
+    "min_d": 2.220446049250313e-16,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "2 Tilt",
+    "designed": "tilt axle screw",
+    "frame_d": 260
+   },
+   "Horn_stack_middle_deck / RollServo": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "3 Roll",
+    "designed": "roll horn on its spline",
+    "frame_d": 440
+   },
+   "HornCentre_stack_middle_deck / RollServo": {
+    "min_d": 0.0,
+    "max_vol": 10.741105282623485,
+    "frame_vol": 440,
+    "section": "3 Roll",
+    "designed": "roll horn screw",
+    "frame_d": 440
+   },
+   "BearingRing / StackMiddleDeck": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "3 Roll",
+    "designed": "roll axle boss in the 623",
+    "frame_d": 440
+   },
+   "AxleWasherRing / BearingRing": {
+    "min_d": 0.0,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "3 Roll",
+    "designed": "roll axle washer on the inner race",
+    "frame_d": 440
+   },
+   "AxleScrewRing / BearingRing": {
+    "min_d": 2.220446049250313e-16,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "3 Roll",
+    "designed": "roll axle screw",
+    "frame_d": 440
+   },
+   "StackTopDeck / StrikerArm": {
+    "min_d": 0.5,
+    "max_vol": 0.0,
+    "frame_vol": null,
+    "section": "4 Striker",
+    "designed": "head on the roof at the tap",
+    "frame_d": 718
+   }
+  },
+  "closest_non_designed": {
+   "mm": 0.8499999999999934,
+   "pair": "StackMiddleDeck / TiltRing"
+  },
+  "n_free_pairs": 242
+ },
+ "collide_every": 10,
+ "seconds": 802
+}

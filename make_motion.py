@@ -380,6 +380,19 @@ def build():
 
 
 
+def show_rig(doc):
+    """A document saved headless reopens in the GUI with everything hidden: show the assembly,
+    its components and parts and the joints, hide the motion data and the flex states."""
+    asm = doc.getObject("Assembly")
+    keep_hidden = {o.Name for o in doc.getObject("StrikerStates").Group} | {"StrikerStates", "MotionData"}
+    for o in [asm] + asm.OutListRecursive:
+        if o.Name not in keep_hidden and o.TypeId != "Assembly::SimulationGroup" and not hasattr(o, "Formula") \
+                and not hasattr(o, "aTimeStart"):
+            o.Visibility = True
+    for n in keep_hidden:
+        doc.getObject(n).Visibility = False
+
+
 def finish_gui(doc_or_path, save=True):
     """In the FreeCAD GUI: give the joints, simulations and motions their view providers (a
     headless build has none, so the joint markers and the Simulation panel would be missing),
@@ -392,7 +405,7 @@ def finish_gui(doc_or_path, save=True):
             continue
         proxy = getattr(o, "Proxy", None)
         cls = type(proxy).__name__ if proxy is not None else ""
-        if getattr(vo, "Proxy", None) is None:
+        if not hasattr(getattr(vo, "Proxy", None), "getIcon"):       # headless: None or a placeholder int
             if cls == "Joint":
                 JointObject.ViewProviderJoint(vo)
             elif cls == "GroundedJoint":
@@ -400,11 +413,12 @@ def finish_gui(doc_or_path, save=True):
             elif cls == "Simulation":
                 CS.ViewProviderSimulation(vo)
             elif cls == "Motion":
-                CS.ViewProviderMotion(vo)
+                vp = CS.ViewProviderMotion.__new__(CS.ViewProviderMotion)
+                vp.app_obj = o                    # its __init__ relabels the motion before attach() has run
+                vo.Proxy = vp
         if hasattr(o, "IntendedColor") and hasattr(vo, "ShapeColor"):
             vo.ShapeColor = tuple(o.IntendedColor[:3])
-    for o in doc.getObject("StrikerStates").Group:
-        o.Visibility = False
+    show_rig(doc)
     Gui.SendMsgToActiveView("ViewFit")
     if save:
         doc.save()
