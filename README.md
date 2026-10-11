@@ -638,6 +638,231 @@ any parameter change. The stack bolt length is picked from the grip.
   horns need 3.5–4 mm of travel onto their splines. The ring (roll) and the
   yoke uprights (tilt) have to spring apart slightly for the press-on.
 
+## Live design and motion
+
+![motion](docs/motion/motion.gif)
+
+`docs/motion/imu-gimbal-motion.FCStd` is the whole rig as a jointed
+assembly (FreeCAD 1.1 Assembly workbench, not Assembly4), with every
+printed part, reference servo, board and fixing from the animated assembly
+above, on the same fixing points and in the same colours.
+
+**What's in the document:**
+- **Components:** one `App::Part` per moving body. Each holds its parts and
+  the fixings attached to it:
+
+  | Component | Holds |
+  |---|---|
+  | `Body_Base` (grounded) | base, pan servo, tab and bench screws |
+  | `Body_Yoke` | pan yoke, tilt servo, 623, pan horn and its screws |
+  | `Body_Tower` | striker tower, cam servo, tower bolts, pivot bolt, nut, bushing, spacers |
+  | `Body_Ring` | tilt ring, roll servo, 623, tilt horn, tilt axle screw and washer |
+  | `Body_Stack` | decks, spines, boards, board fixings, stack bolts, roll horn, roll axle screw |
+  | `Body_Cam` | cam, glued horn, its centre screw |
+  | `Body_Arm` | hammer arm, drive pin, nylon stop screw and nuts |
+  | `Body_Leaf` | drive leaf, pad screws, pawl pin |
+  | `Body_Pawl` | pawl |
+
+- **Joints** (`Joints` group):
+
+  | Joint | Type | Between | Axis | Limits |
+  |---|---|---|---|---|
+  | Pan | Revolute | base, yoke | Z through the gimbal centre | ±135° (DS3240, 270°) |
+  | Tilt | Revolute | yoke, ring | Y through the centre | none: 360° (striker parked) |
+  | Roll | Revolute | ring, stack | X through the centre | ±90° (MG90S) |
+  | Cam | Revolute | tower, cam | −X through the cam centre (+ = forward) | 0–270° |
+  | Hammer arm pivot | Revolute | tower, arm | +X through the pivot (+ = hammer up) | 0–50° |
+  | Pawl pin | Revolute | leaf, pawl | −X through the pin (+ = fold) | 0–120° |
+  | Tower | Fixed | yoke, tower | | |
+  | Leaf root | Fixed | tower, leaf | | |
+
+- **Simulations** (`Simulations` group): 1 pan sweep, 2 tilt 360°, 3 roll
+  ±90° (each with the hammer parked first), 4 the striker cam cycle.
+- **`MotionData`:** the sampled motion timeline and the striker model's
+  numbers (JSON properties), and the striker's flex states (hidden).
+
+**Using it:**
+1. Open the document in FreeCAD 1.1 and switch to the Assembly workbench.
+2. **Drag:** double-click the assembly to edit it, then drag any moving body.
+   The solver keeps it on its joint. Pan, tilt and roll turn the gimbal; the
+   cam and the hammer arm turn on their own axes; the pawl folds on its pin.
+3. **Simulation:** double-click a simulation under `Simulations`, then press
+   **Run kinematics** and use the player (play, step, frame slider).
+4. **Mechanism animation:** **Macro > Macros...**, point it at `docs/motion/`
+   and run `animate_motion.FCMacro`. It opens a temporary copy of the
+   document (or uses the open one and puts it back when you stop), and plays
+   the programme below. The dialog has `|<`, `<`, Play/Pause, `>`, `>|`, a
+   time slider to scrub, a section list (double-click to jump) and a speed
+   slider (0.1x to 4x). **Stop and restore** closes it. The caption (time,
+   pan, tilt, roll, cam, arm, pawl fold, head-leaf bend, and the slow-motion
+   factor) shows in the dialog, the status bar and the 3D view. From the
+   Python console: `MotionAnim.goto(21.9)`, `.play()`, `.pause()`,
+   `.speed = 0.5`, `.stop()`.
+
+**The programme** (38.2 s):
+1. Park the hammer (cam 0 → 120°), then pan 0 → +135 → −135 → 0. The pan
+   servo is a 270° DS3240, so ±135° is its whole travel; a full 360° of pan
+   isn't possible.
+2. Tilt a full 360° with the hammer parked.
+3. Roll +90 → −90 → 0.
+4. Striker: re-arm (cam back to 0), park (120°), single tap (124 → 134°),
+   re-arm (the cliff folds the pawl), park, double tap (124 → 134°, lobe 2
+   lifts the arm again, 244 → 254°), and back to rest (both cliffs fold the
+   pawl).
+
+![striker cycle](docs/motion/striker-cycle.png)
+
+**Computed, not keyframed** (`striker_motion.py`, from `make_striker`'s
+model):
+- **Cam → arm:** at each cam angle, the arm angle is the smallest one at
+  which the pawl clears the cam profile (`cam_radius()` and `LOBES`). The
+  pawl rides on the drive leaf, bent to match that arm angle by the same
+  cantilever model `solve()` uses. The pawl is tested as a capsule (pin to
+  tip, 5 mm wide) against the cam's radius at each point of its outline. So
+  ramps, dwell tops and the roll-off over each cliff's corner come out of
+  the geometry. Parked: 47.98°; cam force 14.5 N; leaf 1.71 N at rest and
+  5.16 N parked at the pin (as the striker section above).
+- **Reverse stroke:** a cam turning backwards can't lift the leaf, so the
+  arm never rises. The pawl folds about its pin just enough to clear the
+  cam, up to 51.9° over lobe 1, then drops back.
+- **Release:** the servo steps from 124° to 134° at 600°/s (MG90S no-load
+  speed, assumed). The pawl rolls off the cliff's corner for the first 2.2 ms,
+  then the leaf's force k(d_rest + dy) and gravity throw the arm onto its
+  rest stop. RK4 on the arm's inertia (arm plus the lumped leaf tip, as
+  `solve()`) gives 50.3 ms to the stop, 33.0 rad/s, 55.0 mJ (the design's
+  54.7 mJ).
+- **Let-off:** the head's share, 36.2 mJ (design 36), carries it on against
+  the preloaded head leaf (P + kx). It reaches the roof 1.6 ms after the arm
+  stops, with 28.0 mJ (design 27.5). It rebounds (coefficient of
+  restitution 0.4, assumed) and is back on its stop screw 4.6 ms after the
+  arm stops.
+- **Flexing leaves:** shapes are swapped, not morphed:
+  - The drive leaf is swapped for the shape solved at the nearest whole
+    degree of arm angle (50 shapes, 0–49°).
+  - The hammer arm is swapped for the one with its head leaf bent the
+    nearest 0.5 mm (11 shapes, 0–5 mm).
+  - The pawl and its pin follow the leaf's own station at the lugs exactly
+    (0.25° table).
+  - The as-printed shapes are in `MotionData` too.
+- **Rigid approximations:**
+  - The native Simulations (rigid bodies only) leave both leaves in their
+    rest shapes.
+  - In the let-off shapes the head drops level while its leaf bends further.
+    A real tip-loaded leaf would also tip the head by up to 8.6° (1.5 x 5 mm
+    / 50 mm) at the roof.
+  - The drop happens in a few tens of milliseconds, so the video and the
+    macro show each release in slow motion (33–39x). The caption gives the
+    physical time.
+
+**Native Simulation limits (FreeCAD 1.1):**
+- There's no cam joint, so the cam can't drive the arm in the solver. The
+  arm and pawl Simulations replay the cam model's values as motions.
+- Motion formulas accept only `+ - * / ^`, `sin` and `cos`. The `arctan`
+  "smooth step" examples in the Simulation help don't parse, and the run
+  generates no frames.
+- A constant motion far from the start pose sends the solver to the wrong
+  branch (120° came out as 60°).
+- So each joint is driven by a sine series fitted to the timeline (straight
+  line plus up to 160 sine terms). Each Simulation starts from the saved
+  rest pose, and its fit error per joint is in its `FitJSON` property:
+
+  | Joint | Worst fit error |
+  |---|---|
+  | pan, tilt, roll | 0.26° |
+  | cam | 0.39° |
+  | arm | 0.92° |
+  | pawl fold | 15.3° |
+
+  The pawl's quick folds over the cliffs get smoothed. For the exact
+  motion, use the macro.
+- Joint limits are stored and shown, but `solve()` does not enforce them:
+  the solver kept a 30° pose on a ±10° joint in a headless test.
+
+**Checks** (headless):
+- `make_motion.py` (`verify-joints.json`):
+  - Forward-kinematics poses (all six joints at several angles) are kept by
+    the solver to 7.6e-14 mm.
+  - Poses wobbled off their joints by up to 1.5° and 0.4 mm are pulled back
+    to pure rotations about the right axes through the right points, within
+    6.3e-12 mm.
+  - The four Simulations run headless (242, 242, 182 and 626 frames), and
+    every joint matches its formula to within 5e-8°.
+- `check_motion.py` (`check-motion.json`): the macro's dry run over all
+  1147 frames (30 fps), plus:
+  - **Arm angle:**
+    - The angle shown equals the timeline to 1.3e-11°.
+    - Recomputed from the cam angle by the model at every frame (not from
+      the stored timeline), it agrees to 1.7e-4°.
+    - During the drops it matches a fresh drop simulation to 8.9e-5°.
+    - The pawl fold agrees to 8.8e-4°.
+    - The pawl is never inside the cam.
+  - **Restore:** the document is put back exactly (placements and shapes).
+  - **Collisions:** every pair of objects on bodies in relative motion was
+    checked (11,689 pair checks, 4,258 measured) — every 10th frame while
+    the gimbal moves, every 3rd while the cam turns, every 2nd in a release.
+    There are no collisions and no unplanned contacts. The closest
+    unplanned approach is 0.85 mm: the ring against the yoke upright and
+    the middle deck, an axial gap that doesn't change with the angle.
+  - **Designed contacts:** pawl on cam (worst overlap 0.93 mm³, from the
+    sampled pawl outline), arm on its rest stop (touching), and head on
+    the roof at the tap. The last two are checked at the exact instants
+    of all three taps, not on the frame grid: the arm reaches its stop at
+    50.3 ms and the head reaches the roof at 51.8 ms, each at 0.000 mm
+    with 0 mm³ of overlap.
+  - **Parked tilt (360°) and roll (±90°), every frame:** the striker keeps
+    **7.90 mm** from everything that tilts or rolls (need ≥ 5;
+    `striker_limits()` gives 7.9). Two things are reported apart:
+    - The four tower bolts end flush with the yoke upright's inner face,
+      so their 3.9 mm to the ring is the yoke's own gap. The upright itself
+      passes the ring at 0.85 mm.
+    - The tilt axle screw and washer only spin inside the yoke's bearing,
+      1.0 mm from the tower's screw-head pocket.
+  - **Drive pin in the leaf's slot: up to 27 mm³ of overlap when parked.**
+    `make_striker.solve()` sizes the leaf so its tip centreline moves
+    with the pin. But the pin rides FORK_T / 2 off that centreline and
+    6.8 mm up the slot, and the tip tilts 11.6° by park. So the leaf shape
+    it solves puts the slot 1.8 mm off the pin at 48° (0.2 mm clearance;
+    0.3 mm off at 24°). The real leaf will bend a little differently
+    (the pin sets the slot), with slightly more force when parked. Worth
+    fixing in `leaf_design()` / `DriveLeaf`.
+
+**Rebuild:**
+
+```
+freecadcmd -c "exec(open('make_motion.py').read(), {'__file__': 'make_motion.py', '__name__': '__main__'})"
+freecadcmd -c "exec(open('check_motion.py').read(), {'__file__': 'check_motion.py', '__name__': '__main__'})"
+freecadcmd -c "exec(open('render_motion.py').read(), {'__file__': 'render_motion.py', '__name__': '__main__'})"
+```
+
+`make_motion.py` takes about 10 minutes (`ASSY_CACHE=file.json` reuses the
+generator geometry), and the checks and the render take longer.
+`render_motion.py` writes `motion.gif`, `motion.mp4` (when `ffmpeg` is on the
+PATH) and `striker-cycle.png`. The macro's own dry run plays every frame and
+checks that the arm angle shown is the timeline's and that the document is
+restored exactly:
+
+```
+freecadcmd -c "exec(open('docs/motion/animate_motion.FCMacro').read(), {'__name__': '__main__', 'DRY_RUN': True, '__file__': 'docs/motion/animate_motion.FCMacro'})"
+```
+
+**After a rebuild, finish it in the GUI.** A headless build has no view
+providers for its joints, Simulations and motions. Without them:
+- the joints have no markers;
+- double-clicking a Simulation doesn't open its panel;
+- the parts are grey and everything reopens hidden.
+
+To fix it, open the document and run this in the Python console:
+
+```
+import sys; sys.path.insert(0, r"C:\path\to\imu_gimbal_rig")
+import make_motion; make_motion.finish_gui(App.ActiveDocument)
+```
+
+That attaches the view providers, applies the colours from
+`IntendedColor`, shows the rig and saves. The committed document has
+already been through this. The macro shows and colours the rig by itself
+either way.
+
 
 ## Variants
 
@@ -659,6 +884,11 @@ any parameter change. The stack bolt length is picked from the grip.
 | `assembly_checks.py` | Fixing checks: counts vs this README, coaxial, seated, shank clearance, access on the animation timeline |
 | `make_assembly_animation.py` | Builds `docs/assembly/imu-gimbal-assembly-animated.FCStd`, runs the checks, renders the GIF and step PNGs (`render_assembly_animation.py`) |
 | `docs/assembly/animate_assembly.FCMacro` | Plays the animated assembly in the FreeCAD GUI (and a headless dry run) |
+| `striker_motion.py` | Striker kinematics and dynamics from `make_striker`'s model: cam → pawl → leaf → arm, reverse-stroke pawl fold, drop and let-off; the motion programme and its timeline |
+| `make_motion.py` | Builds `docs/motion/imu-gimbal-motion.FCStd` (components, joints, Simulations, flex states, timeline) and verifies the joints and Simulations headless |
+| `docs/motion/animate_motion.FCMacro` | Plays the mechanism animation in the FreeCAD GUI (and a headless dry run) |
+| `check_motion.py` | Motion checks: arm angle vs the cam model at every frame, collisions, parked-tilt clearance, restore |
+| `render_motion.py` | `docs/motion/motion.gif` / `.mp4` and `striker-cycle.png` |
 | `make_swirly_plate.py` | Flat printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `make_carrier.py` | Older standalone flat plate with Feather bosses (not used by the gimbal) |
 | `preview_swirly.py` | Matplotlib 2D preview |
