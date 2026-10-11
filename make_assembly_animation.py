@@ -144,7 +144,7 @@ def write_document(plan, path, variant):
     for it in plan["items"]:
         o = doc.addObject("Part::Feature", it.name)
         o.Shape = it.shape
-        o.Placement = it.placement
+        o.Placement = it.placement.multiply(it.shape.Placement)     # the shape may carry its own placement
         o.Label = it.label
         st = nums[it.step]
         vec, dist = _insertion(it)
