@@ -1,0 +1,47 @@
+{
+ "fk_pose_solver_drift_mm": 7.553172887309252e-14,
+ "perturbed_residual_mm": 6.278746777443703e-12,
+ "perturbed_angle_dev_deg": 0.6890222209683259,
+ "simulations": {
+  "1 Pan sweep +/-135 (hammer parked)": {
+   "frames": 242,
+   "max_angle_err_deg": 5.339956032912596e-09,
+   "max_residual_mm": 9.996534520775533e-09,
+   "fit_vs_timeline_deg": {
+    "Pan": 0.16940819528342155,
+    "Cam": 0.08630492035861614,
+    "ArmPivot": 0.38061459638293627
+   }
+  },
+  "2 Tilt 360 (hammer parked)": {
+   "frames": 242,
+   "max_angle_err_deg": 3.117611413472332e-08,
+   "max_residual_mm": 4.6752085231065735e-08,
+   "fit_vs_timeline_deg": {
+    "Tilt": 0.02876498020816598,
+    "Cam": 0.08630492035859666,
+    "ArmPivot": 0.38061459638294626
+   }
+  },
+  "3 Roll +/-90 (hammer parked)": {
+   "frames": 182,
+   "max_angle_err_deg": 3.009631655004341e-09,
+   "max_residual_mm": 2.7359482919109695e-09,
+   "fit_vs_timeline_deg": {
+    "Roll": 0.2627494296085434,
+    "Cam": 0.08014376722940403,
+    "ArmPivot": 0.3698174049550357
+   }
+  },
+  "4 Striker cam cycle (arm and pawl from the cam model)": {
+   "frames": 626,
+   "max_angle_err_deg": 4.718481250165496e-08,
+   "max_residual_mm": 7.151266819683619e-08,
+   "fit_vs_timeline_deg": {
+    "Cam": 0.3896293437625502,
+    "ArmPivot": 0.9230208102620485,
+    "PawlPin": 15.346738976565794
+   }
+  }
+ }
+}

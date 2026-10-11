@@ -1,0 +1,314 @@
+{
+ "events": [
+  {
+   "v0": 3.3893727966573906,
+   "m_head_g": 6.299848262572566,
+   "t_roof": 0.0015639999999999678,
+   "v_roof": 2.981120554069057,
+   "e_roof_mJ": 27.993626986053023,
+   "t_back": 0.004644000000000292,
+   "t_contact_ms": 2.149999999999999,
+   "t_stop_ms": 50.27591942459524,
+   "omega_stop": 33.00295865901398,
+   "ke_stop_mJ": 54.986505867299286,
+   "ke_head_mJ": 36.18584948912389,
+   "t_roof_ms": 51.8399194245952,
+   "t_back_ms": 54.91991942459553,
+   "t_end_ms": 60.91991942459553,
+   "theta0": 124.0,
+   "theta1": 134.0,
+   "phi0": 47.98490905761719,
+   "segment": 8
+  },
+  {
+   "v0": 3.3893727966573906,
+   "m_head_g": 6.299848262572566,
+   "t_roof": 0.0015639999999999678,
+   "v_roof": 2.981120554069057,
+   "e_roof_mJ": 27.993626986053023,
+   "t_back": 0.004644000000000292,
+   "t_contact_ms": 2.149999999999999,
+   "t_stop_ms": 50.27591942459524,
+   "omega_stop": 33.00295865901398,
+   "ke_stop_mJ": 54.986505867299286,
+   "ke_head_mJ": 36.18584948912389,
+   "t_roof_ms": 51.8399194245952,
+   "t_back_ms": 54.91991942459553,
+   "t_end_ms": 60.91991942459553,
+   "theta0": 124.0,
+   "theta1": 134.0,
+   "phi0": 47.98490905761719,
+   "segment": 12
+  },
+  {
+   "v0": 3.3893727966573906,
+   "m_head_g": 6.299848262572566,
+   "t_roof": 0.0015639999999999678,
+   "v_roof": 2.981120554069057,
+   "e_roof_mJ": 27.993626986053023,
+   "t_back": 0.004644000000000292,
+   "t_contact_ms": 2.149999999999999,
+   "t_stop_ms": 50.27591942459524,
+   "omega_stop": 33.00295865901398,
+   "ke_stop_mJ": 54.986505867299286,
+   "ke_head_mJ": 36.18584948912389,
+   "t_roof_ms": 51.8399194245952,
+   "t_back_ms": 54.91991942459553,
+   "t_end_ms": 60.91991942459553,
+   "theta0": 244.0,
+   "theta1": 254.0,
+   "phi0": 47.98490905761719,
+   "segment": 14
+  }
+ ],
+ "design": {
+  "head_leaf_t": 1.36,
+  "head_leaf_k": 0.12,
+  "head_preload_N": 1.4,
+  "head_contact_N": 2.0,
+  "head_pre_defl": 11.7,
+  "let_off_overshoot_mm": 15.5,
+  "head_strain_pct": 1.36,
+  "hover": 5.0,
+  "arm_mass_g": 20.2,
+  "head_share": 0.66,
+  "tap_energy_mJ": 36.0,
+  "roof_energy_mJ": 27.5,
+  "drop_energy_total_mJ": 54.7,
+  "gravity_mJ": 9.1,
+  "arm_stop_energy_mJ": 18.7,
+  "leaf_t": 2.01,
+  "leaf_b": 20.0,
+  "leaf_L": 68.0,
+  "leaf_rest_N": 1.69,
+  "leaf_park_N": 5.13,
+  "leaf_strain_park_pct": 1.3,
+  "seat_lean_deg": 5.57,
+  "pin_travel_y": 13.4,
+  "pin_rise": 7.6,
+  "rest_hold_Nmm": 40.6,
+  "cam_force_N": 14.5,
+  "cam_lift": 5.72,
+  "cam_rmax": 13.7,
+  "beta_park": 36.9,
+  "cam_torque_kgcm": 0.48,
+  "park_deg": 48.0,
+  "pawl_lean_rest": 14.6,
+  "pawl_lean_park": 9.1
+ },
+ "park": 47.98490905761719,
+ "duration": 38.2,
+ "segments": [
+  {
+   "i": 0,
+   "section": "Start",
+   "caption": "At rest: hammer 5 mm over the roof",
+   "kind": "hold",
+   "t0": 0.0,
+   "t1": 0.6,
+   "args": []
+  },
+  {
+   "i": 1,
+   "section": "Start",
+   "caption": "Park the hammer before the gimbal moves (cam 0 -> 120)",
+   "kind": "cam",
+   "t0": 0.6,
+   "t1": 2.6,
+   "args": [
+    0.0,
+    120.0
+   ]
+  },
+  {
+   "i": 2,
+   "section": "1 Pan",
+   "caption": "Pan sweep, the DS3240's full +/-135 (270 deg servo)",
+   "kind": "gimbal",
+   "t0": 2.6,
+   "t1": 8.6,
+   "args": [
+    "pan",
+    [
+     0.0,
+     135.0,
+     -135.0,
+     0.0
+    ]
+   ]
+  },
+  {
+   "i": 3,
+   "section": "2 Tilt",
+   "caption": "Tilt a full 360 with the hammer parked",
+   "kind": "gimbal",
+   "t0": 8.6,
+   "t1": 14.6,
+   "args": [
+    "tilt",
+    [
+     0.0,
+     360.0
+    ]
+   ]
+  },
+  {
+   "i": 4,
+   "section": "3 Roll",
+   "caption": "Roll +/-90 (MG90S)",
+   "kind": "gimbal",
+   "t0": 14.6,
+   "t1": 18.6,
+   "args": [
+    "roll",
+    [
+     0.0,
+     90.0,
+     -90.0,
+     0.0
+    ]
+   ]
+  },
+  {
+   "i": 5,
+   "section": "4 Striker",
+   "caption": "Re-arm: cam back to 0, the arm rides the ramp down",
+   "kind": "cam",
+   "t0": 18.6,
+   "t1": 20.1,
+   "args": [
+    120.0,
+    0.0
+   ]
+  },
+  {
+   "i": 6,
+   "section": "4 Striker",
+   "caption": "Park: cam forward to 120 (top of lobe 1)",
+   "kind": "cam",
+   "t0": 20.1,
+   "t1": 21.6,
+   "args": [
+    0.0,
+    120.0
+   ]
+  },
+  {
+   "i": 7,
+   "section": "4 Striker",
+   "caption": "Single tap: step past the 125 cliff",
+   "kind": "cam",
+   "t0": 21.6,
+   "t1": 21.900000000000002,
+   "args": [
+    120.0,
+    124.0
+   ]
+  },
+  {
+   "i": 8,
+   "section": "4 Striker",
+   "caption": "Single tap: the leaf throws the arm onto its stop, the head lets off to the roof",
+   "kind": "release",
+   "t0": 21.900000000000002,
+   "t1": 24.3,
+   "args": [
+    124.0,
+    134.0
+   ]
+  },
+  {
+   "i": 9,
+   "section": "4 Striker",
+   "caption": "Re-arm: cam back to 0, the cliff folds the pawl",
+   "kind": "cam",
+   "t0": 24.3,
+   "t1": 26.900000000000002,
+   "args": [
+    134.0,
+    0.0
+   ]
+  },
+  {
+   "i": 10,
+   "section": "4 Striker",
+   "caption": "Park at 120",
+   "kind": "cam",
+   "t0": 26.900000000000002,
+   "t1": 28.1,
+   "args": [
+    0.0,
+    120.0
+   ]
+  },
+  {
+   "i": 11,
+   "section": "4 Striker",
+   "caption": "Double tap: past the 125 cliff",
+   "kind": "cam",
+   "t0": 28.1,
+   "t1": 28.400000000000002,
+   "args": [
+    120.0,
+    124.0
+   ]
+  },
+  {
+   "i": 12,
+   "section": "4 Striker",
+   "caption": "Double tap, first tap",
+   "kind": "release",
+   "t0": 28.400000000000002,
+   "t1": 30.400000000000002,
+   "args": [
+    124.0,
+    134.0
+   ]
+  },
+  {
+   "i": 13,
+   "section": "4 Striker",
+   "caption": "Double tap: lobe 2 lifts the arm again",
+   "kind": "cam",
+   "t0": 30.400000000000002,
+   "t1": 32.400000000000006,
+   "args": [
+    134.0,
+    244.0
+   ]
+  },
+  {
+   "i": 14,
+   "section": "4 Striker",
+   "caption": "Double tap, second tap (past the 245 cliff)",
+   "kind": "release",
+   "t0": 32.400000000000006,
+   "t1": 34.400000000000006,
+   "args": [
+    244.0,
+    254.0
+   ]
+  },
+  {
+   "i": 15,
+   "section": "4 Striker",
+   "caption": "Return to rest: cam back to 0, both cliffs fold the pawl",
+   "kind": "cam",
+   "t0": 34.400000000000006,
+   "t1": 37.400000000000006,
+   "args": [
+    254.0,
+    0.0
+   ]
+  },
+  {
+   "i": 16,
+   "section": "End",
+   "caption": "At rest",
+   "kind": "hold",
+   "t0": 37.400000000000006,
+   "t1": 38.2,
+   "args": []
+  }
+ ]
+}
