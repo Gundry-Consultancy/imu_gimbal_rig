@@ -662,6 +662,42 @@ def spacer():
     return Part.makeCylinder(5.0, L).cut(Part.makeCylinder(BUSHING_OD / 2 + 0.2, L + 2, V(0, 0, -1)))
 
 
+def fixing_points(g, st, mg):
+    """Record the striker's fixing points in mg.POINTS (see make_gimbal.point), from the same
+    layout the tower, arm and leaf are cut from."""
+    lay, leaf = st["lay"], st["leaf"]
+    P, t = lay["P"], leaf.t
+    y_uo = g["upright_out_y"]
+    y_f = y_uo - STAND_T
+    hb = (mg.BOSS_FACTOR - 1) * STAND_T
+    xo = WALL_X + WALL_T
+    for i, (x, z) in enumerate(g["stand_bolts"]):          # head on the boss, access through the seat
+        mg.point(f"stand_bolt{i}", "striker_stand", "through", V(x, y_f - hb, z), (0, -1, 0), STAND_BOLT_HOLE,
+                 STAND_T + hb, access_d=7.2, mate=f"yoke_stand{i}")
+    mg.point("pivot", "striker_stand", "through", V(-xo, P[0], P[1]), (-1, 0, 0), 3.4, 2 * xo,
+             nut=V(xo - 2.6, P[0], P[1]), nut_axis=V(1, 0, 0))
+    s0 = station(st["rest"], 0)
+    _, _, _, h = s0
+    w_out = V(0, -math.sin(h), math.cos(h))                  # the leaf's -Y face normal (pad side)
+    i = 0
+    for u in (-4.0, -LEAF_PAD + 4.0):
+        for x in (-LEAF_B / 4, LEAF_B / 4):
+            y, z = _local(s0, u, t / 2 + LEAF_PAD_T)
+            mg.point(f"leaf_pad{i}", "striker_spring", "through", V(x, y, z), w_out, 3.4, t + LEAF_PAD_T,
+                     pilot_d=mg.M3_PILOT, pilot_depth=12.0)
+            i += 1
+    pin = lay["pin"]                                         # drive pin: head 0.3 mm off the +X fork face
+    mg.point("drive_pin", "striker_arm", "pilot", V(LEAF_B / 2 + 0.3, pin[0], pin[1]), (1, 0, 0), TAIL_PILOT, ARM_W,
+             slot_d=PIN_HOLE, head_gap=0.3)
+    z_tip = lay["z_lc"] - lay["pre"] + lay["th"] / 2         # head-leaf top under the screw (installed)
+    zo = lay["z_oa"]
+    mg.point("stop_screw", "striker_arm", "through", V(0, 0, zo + OVERARM_T + 4.0), (0, 0, 1), SCREW_PILOT,
+             OVERARM_T + 4.0, nut_low=V(0, 0, zo), tip_z=z_tip)
+    sa = station(st["rest"], FOLLOW_A)
+    y, z = _local(sa, 0, t / 2 + LUG_DROP)
+    mg.point("pawl_pin", "striker_spring", "pin", V(0, y, z), (1, 0, 0), PIN_D, 2 * (PAWL_T / 2 + 0.4 + LUG_T))
+
+
 # --- assembly ------------------------------------------------------------------------------------
 def _rot(shape, P, deg):
     s = shape.copy()
@@ -692,6 +728,9 @@ def build(g, mg):
     bosses = mg.placed(bosses, s_origin, s_x, s_z)
     plate_cuts = [mg.placed(c, s_origin, s_x, s_z) for c in plate_cuts]
     stand = tower(g, mg, st, plate, plate_cuts, bosses)
+    mg.plate_points("striker_stand")
+    mg.horn_points("striker_cam")
+    fixing_points(g, st, mg)
 
     body, head = arm_parts(lay, installed=True)
     arm_rest = body.fuse(head).removeSplitter()

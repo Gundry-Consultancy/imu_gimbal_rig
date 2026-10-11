@@ -262,29 +262,66 @@ def qt_envelope(plug_low):
     return b.fuse(Part.makeBox(pw, pl, ph, V(pf.QT_W / 2 - pw / 2, v0, QT_SPACER + PCB_T)))
 
 
-def boards():
-    """Reference envelopes in stack coords: list of (name, shape)."""
+WING_W, WING_H = 50.8, 22.86
+WING_HOLES = ((2.54, 2.54), (2.54, 20.32), (48.26, 2.54), (48.26, 20.32))   # FeatherWing spec
+
+
+def qt_holes(x, y):
+    """Grid-local centres of the top-edge hole pair of a portrait QT board at (x, y): the long
+    edge (left or right, i.e. which way the board is turned) whose pair lands in slots."""
+    sides = {o[2] for o in pf.board_options(ROWS, COLS, margin=BORDER)
+             if abs(o[0] - x) < 0.01 and abs(o[1] - y) < 0.01}
+    hx = 2.54 if "left" in sides or not sides else pf.QT_W - 2.54
+    return [(x + hx, y + 2.54), (x + hx, y + 2.54 + pf.PAIR_DY)]
+
+
+def board_layout():
+    """Every board spot, in stack coords: dict(name, deck, kind 'qt' / 'wing', origin (board
+    lower-left on the deck top), plug_low, holes [(x, y)], deck_top, deck_bottom, mount_h).
+    mount_h is the spacer (QT) or standoff (wing) height between the deck and the PCB."""
     out = []
-    tops = [z1 for _, z1 in deck_z()]
+    zs = deck_z()
     for d, name in enumerate(("bottom", "middle", "top")):
-        o = V(-GRID_X / 2, -GRID_Y / 2, tops[d])
+        z0, z1 = zs[d]
+        o = V(-GRID_X / 2, -GRID_Y / 2, z1)
+
+        def spot(n, kind, x, y, holes, plug_low=False, mount=QT_SPACER):
+            out.append(dict(name=n, deck=name, kind=kind, origin=o + V(x, y, 0), plug_low=plug_low,
+                            holes=[(o.x + hx, o.y + hy) for hx, hy in holes], deck_top=z1, deck_bottom=z0,
+                            mount_h=mount))
         if name == "middle":
             (wx, wy), low = wing_layout()
-            wing = Part.makeBox(50.8, 22.86, PCB_T + PARTS_H, V(wx, wy, WING_STANDOFF))
-            wing = wing.fuse(Part.makeBox(PLUG[1], PLUG[0], PLUG[2],
-                                          V(wx + 50.8, wy + 11.43 - PLUG[0] / 2, WING_STANDOFF + PCB_T)))
-            wing.translate(o)
-            out.append((f"{name}_FeatherWing", wing))
+            spot(f"{name}_FeatherWing", "wing", wx, wy, [(wx + a, wy + b) for a, b in WING_HOLES], mount=WING_STANDOFF)
         else:
             low = qt_row(high=False)
         for i, (x, y) in enumerate(low, 1):
-            b = qt_envelope(plug_low=True)
-            b.translate(o + V(x, y, 0))
-            out.append((f"{name}_QT_low{i}", b))
+            spot(f"{name}_QT_low{i}", "qt", x, y, qt_holes(x, y), plug_low=True)
         for i, (x, y) in enumerate(qt_row(high=True), 1):
-            b = qt_envelope(plug_low=False)
-            b.translate(o + V(x, y, 0))
-            out.append((f"{name}_QT_high{i}", b))
+            spot(f"{name}_QT_high{i}", "qt", x, y, qt_holes(x, y))
+    return out
+
+
+def stack_bolt_points():
+    """The two clamp bolts, in stack coords: head seat (top deck boss top, axis +Z) and nut
+    seat (bottom deck boss underside, axis -Z), plus the grip between them."""
+    zs = deck_z()
+    top = zs[2][1] + BOLT_BOSS_H
+    bot = zs[0][0] - BOLT_BOSS_H
+    return [dict(x=x, head=V(x, 0, top), nut=V(x, 0, bot), grip=top - bot, hole=BOLT_HOLE) for x in (-BOLT_X, BOLT_X)]
+
+
+def boards():
+    """Reference envelopes in stack coords: list of (name, shape)."""
+    out = []
+    for b in board_layout():
+        if b["kind"] == "wing":
+            wing = Part.makeBox(WING_W, WING_H, PCB_T + PARTS_H, V(0, 0, WING_STANDOFF))
+            wing = wing.fuse(Part.makeBox(PLUG[1], PLUG[0], PLUG[2],
+                                          V(WING_W, WING_H / 2 - PLUG[0] / 2, WING_STANDOFF + PCB_T)))
+        else:
+            wing = qt_envelope(plug_low=b["plug_low"])
+        wing.translate(b["origin"])
+        out.append((b["name"], wing))
     return out
 
 

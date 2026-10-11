@@ -47,10 +47,12 @@ That is room for **21 QT boards + 1 FeatherWing**. PR 839 needs 9 breakouts + th
   has it), with M2.5 screws, 3 mm spacers and nuts.
 - **Spines:** a solid strip runs between the two rows on every deck. The upper
   and lower spines (36 x 7 mm standoffs) sit on it, directly under the roof.
-- **Clamping:** two M3 bolts at x = ±14 run through the whole stack, with the
-  heads on top, just outside the roof, and nuts underneath. The top and bottom
-  decks have bosses round the bolt holes (6 mm there instead of 3), so washers
-  are optional.
+- **Clamping:** two M3 bolts at x = ±14 run through the whole stack. Put them
+  in from below, heads under the bottom deck, with the nuts on top, just
+  outside the roof. A 5.5 mm head on top would overlap the roof edge by
+  0.75 mm, so it can't go in straight down. The top and bottom decks have
+  bosses round the bolt holes (6 mm there instead of 3), so washers are
+  optional.
 - **Mux:** you'll need a TCA9548A, because of I²C address clashes (several
   LIS3MDL/LSM303/LSM9DS1 parts share addresses). It fits in a spare board spot.
 
@@ -202,7 +204,7 @@ soft-iron error.
 | Where | Fixing | Qty | Notes |
 |---|---|---|---|
 | **Sensor stack** | M3 x 50 bolt (tall_top: M3 x 55) | 2 | top deck through both spines to the bottom deck at x = ±14; grip 44.3 mm (tall_top 52.2); **brass or nylon preferred** |
-| | M3 nut (+ washers, optional) | 2 | nuts under the bottom deck's bosses, heads on the top deck's bosses just outside the roof. With tall_top's M3 x 55, leave the washers out |
+| | M3 nut (+ washers, optional) | 2 | heads under the bottom deck's bosses (bolts go in from below), nuts on the top deck's bosses just outside the roof, slid in under the roof edge. With tall_top's M3 x 55, leave the washers out |
 | **QT boards** | M2.5 x 10 screw + nut + 3 mm spacer | 2 per board | top-edge hole pair; **nylon**. 9 boards in PR 839 = 18 sets (capacity 21 boards = 42) |
 | **FeatherWing** | M2.5 x 10 standoff (F-F) + 2 x M2.5 x 6 screws + nut | 4 | nylon; 10 mm clears male headers |
 | **Roll axis** | MG90S horn: supplied centre screw + 2 x M2 x 6 self-tap (arm) | 1 set | middle deck +X wall (4 mm behind the pocket floor) |
@@ -426,46 +428,216 @@ spline, then drive the centre screw through the part's access hole.
      screws.
    - Press a 623 into the -X bearing plate from the outside.
    - Screw the tilt horn into the +Y bar's pocket.
-5. **Sensor stack:**
-   - Fit the boards to the decks.
-   - Stack the decks: bottom deck (bosses down), lower spine, middle deck,
-     upper spine, top deck (bosses up). Clamp them with the two M3 bolts.
-   - Screw the roll horn to the middle deck's +X wall.
-6. **Stack into the ring:**
-   - Press the roll horn onto the MG90S spline and fit its centre screw
-     through the wall's access hole.
-   - At the -X end, fit an M3 x 12 + washer through the ring's 623 into the
-     middle deck's axle boss.
-7. **Ring into the yoke:**
+5. **Ring into the yoke, while the ring is still empty:**
    - Press the tilt horn onto the tilt spline and fit its centre screw through
-     the bar's access hole.
+     the bar's access hole. The driver comes from inside the ring along the
+     tilt axis, where the stack's spines will be later.
    - At -Y, fit an M3 x 12 + washer through the yoke's 623 into the ring's
      axle boss.
-8. **Striker** (everything goes into the tower before it goes onto the yoke):
+   - The axle boss sits 2.4 mm into the bearing's lip hole, and the horn needs
+     about 4 mm of travel onto the spline, so spring the uprights apart a
+     little (or angle the ring in) to get both on.
+6. **Boards and the middle deck:**
+   - Fit the boards to the decks on the bench (nuts go under each deck).
+   - Screw the roll horn to the middle deck's +X wall.
+   - Lower the middle deck on its own into the ring. Press the roll horn onto
+     the MG90S spline and fit its centre screw through the wall's access hole,
+     along the roll axis from inside. Once the upper spine is in, it blocks
+     that axis.
+   - At the -X end, fit an M3 x 12 + washer through the ring's 623 into the
+     middle deck's axle boss.
+7. **Rest of the stack, in place:**
+   - Slide the lower spine and bottom deck (bosses down) in under the ring
+     from the side. Put the upper spine and top deck (bosses up) on from
+     above.
+   - Clamp them with the two M3 bolts, up from under the bottom deck. Below
+     the bottom deck there is 54 mm down to the yoke floor, for 53 mm of bolt
+     plus head. It's easier to tilt the ring 90° and put them in from the
+     side. For `tall_top` (M3 x 55) you have to do it that way. Slide the
+     washers and nuts in under the roof edge onto the top deck's bosses.
+8. **Striker** (the tower goes on the yoke before the leaf goes in):
    - Put the cam MG90S into the tower's −X wall from inside, bottom first,
      spline end (cable) up. Fit its 2 tab screws.
-   - Pin the pawl to the drive leaf's lugs with filament. It should swing
-     freely and fall back onto its stop.
-   - Screw the drive leaf's root pad to the seat (4 x M3 x 16), lugs and
-     pawl toward the servo.
-   - Put the bushing through the arm's hub, with a spacer either side. Hold
-     the arm between the walls and push the M3 x 50 through the −X wall,
-     the bushing and the +X wall, into the nut in its pocket. Tighten until
-     snug. The arm should swing freely.
-   - Bend the leaf's fork onto the tail (the leaf leans back about 5.5° when
-     free). Drive the M3 x 20 pin through one fork slot, self-tap it through
-     the tail and out through the other slot. Leave the head ~0.3 mm clear,
-     so the pin can slide.
+   - Bolt the tower to the yoke's -Y upright (4 x M3 x 14, reached through
+     the holes in the leaf seat). This covers the tilt axle screw, so that
+     goes in first. Do it before the drive leaf: the leaf's root pad covers
+     the upper two access holes.
+   - On the bench, pin the pawl to the drive leaf's lugs with filament. It
+     should swing freely and fall back onto its stop.
+   - On the bench, bend the leaf's fork onto the arm's tail (the leaf leans
+     back about 5.5° when free). Drive the M3 x 20 pin through one fork slot,
+     self-tap it through the tail and out through the other slot. Leave the
+     head ~0.3 mm clear, so the pin can slide. Do this before the arm goes
+     between the walls: there the fork has only 10 mm beside it for a 20 mm
+     pin.
    - Fit the nylon stop screw down through the overarm with a nut under the
      boss. Turn it until the head leaf is pressed down 11.7 mm (the head's
      face is level), then lock it with the top nut.
+   - Put the bushing through the arm's hub, with a spacer either side. Lower
+     the arm, with the leaf hanging from it, between the walls and push the
+     M3 x 50 through the −X wall, the bushing and the +X wall, into the nut in
+     its pocket. Tighten until snug. The arm should swing freely.
+   - Screw the drive leaf's root pad to the seat (4 x M3 x 16), lugs and
+     pawl toward the servo.
    - Fit the cam with the servo at 0°: the pawl tip just clears the base
      circle, 45° up from the cam's +Y side.
-   - Bolt the tower to the yoke's -Y upright (4 x M3 x 14, reached through
-     the holes in the leaf seat). This covers the tilt axle screw, so fit the
-     tower last.
    - Check the hover gap: the head's face should sit 5 mm above the roof. To
      trim it, shim the rest-stop lip, where the tail lands.
+
+The animated assembly (below) follows this order. Its access check found
+the four changes from the earlier order: the ring goes into the yoke empty,
+the stack is finished in place, the stack bolts go in from below, and the
+tower goes on before the leaf.
+
+## Assembly animation
+
+![assembly animation](docs/assembly/assembly-animation.gif)
+
+`docs/assembly/imu-gimbal-assembly-animated.FCStd` is the whole rig with
+every fixing modelled: 119 fixings among 153 objects, in 25 steps, following
+the assembly order above. The fixing count includes the optional bench
+screws, the 9 PR 839 boards and the wing.
+
+**What's in the document:**
+- **Groups:** an `Assembly steps` group holds one group per step, named
+  `NN - title`.
+- **Spreadsheet `Steps`:** one row per step, with the title, parts,
+  fixings (spec x qty), tools, each fixing's insertion direction and
+  distance, and notes. This includes the face each servo goes in from.
+- **Spreadsheet `Insertions`:** one row per object, with its full insertion
+  path.
+- **Object properties:** `Spec` (for example "M3x50 socket cap, A2"),
+  `Material`, `Qty`, `Step`, `StepTitle`, `InsertVector`, `InsertDistance`,
+  `IntendedColor` and `AnimMoves`.
+- **Colours:** printed parts are colour-coded as in the renders. Fixings are
+  coloured by material: steel / A2 grey, nylon off-white, brass gold.
+  Documents built headless store the colours in `IntendedColor`, and the
+  macro applies them.
+
+**Playing it:**
+1. In FreeCAD 1.1, open **Macro > Macros...** and point it at
+   `docs/assembly/`.
+2. Run `animate_assembly.FCMacro`. It opens a temporary copy of the
+   document, so the saved file is never changed. If the document is already
+   open, the macro uses it and puts every placement, visibility and colour
+   back when you stop.
+3. Everything starts hidden. Each step's parts and fixings fade in and slide
+   along their insertion paths. Sub-assemblies (yoke, ring, decks, tower,
+   arm) are built off to one side and then carried home.
+4. The current step is in full colour and earlier steps are dimmed. The step
+   title shows in the dialog, the status bar, the report view and the
+   top-left of the 3D view.
+
+**Controls:**
+- The dialog has `|<`, `<`, Play/Pause, `>`, `>|`, a step list
+  (double-click to jump) and a speed slider (0.25x to 16x).
+- **Stop and restore** closes the dialog and puts the document back.
+- From the Python console: `AssemblyAnim.goto(n)`, `.play()`, `.pause()`,
+  `.next()`, `.prev()`, `.speed = 2`, `.stop()`.
+
+There is one PNG per step in `docs/assembly/steps/NN.png`. Each shows that
+step's objects in colour and everything else in grey.
+
+**Rebuild** (about 2 minutes for the geometry, plus a few minutes for the
+checks and the GIF):
+
+```
+freecadcmd -c "exec(open('make_assembly_animation.py').read(), {'__file__': 'make_assembly_animation.py', '__name__': '__main__'})"
+```
+
+Options are environment variables:
+- `ASSY_VARIANT=tall_top` builds the variant. It writes
+  `variants/tall_top/docs/assembly/`, with M3 x 55 stack bolts and no stack
+  washers.
+- `ASSY_BOARDS=all` fills all 21 QT spots.
+- `ASSY_NO_BENCH=1` leaves out the bench screws.
+- `ASSY_RENDER=0`, `ASSY_ACCESS=0` and `ASSY_WRITE=0` skip the GIF, the
+  access check and the document.
+- `ASSY_CACHE=file.json` reuses the generated geometry.
+
+To check the macro without a GUI, run a dry run. It plays every frame of every
+step and checks that the placements end exactly on the saved ones and are
+restored afterwards:
+
+```
+freecadcmd -c "exec(open('docs/assembly/animate_assembly.FCMacro').read(), {'__name__': '__main__', 'DRY_RUN': True, '__file__': 'docs/assembly/animate_assembly.FCMacro'})"
+```
+
+**How the fixings follow the model:** each generator records a fixing point
+wherever it cuts a fixing hole: its seat, axis, hole size and depth
+(`make_gimbal.POINTS`, `make_sensor_stack.board_layout()` and
+`stack_bolt_points()`, `make_striker.fixing_points()`).
+`assembly_plan.py` puts each fixing on its point, so the fixings move with
+any parameter change. The stack bolt length is picked from the grip.
+
+**Checks** (`assembly_checks.py`, printed on every build):
+- (a) counts by spec against the fixings table above
+- (b) each screw is coaxial with its recorded point and with the real hole
+  face found in the part. Slots are checked against the slot centreline.
+- (c) each head, washer, nut, spacer and bearing seats on its face (gap
+  < 0.5 mm, and not sunk into it)
+- (d) no shank cuts into printed parts outside its own hole (< 1 mm³)
+- (e) access: each fixing's insertion path, and a straight driver or key
+  behind its head, against everything already in place at that moment of
+  the animation
+
+| # | Step | Fixings |
+|---|---|---|
+| 1 | Pan servo into the base | 4 x M3 x 12 self-tap (tabs) |
+| 2 | Base to the bench (optional) | 4 x M3 x 16 pan head (or #4 wood screws) |
+| 3 | Tilt servo into the yoke | 4 x M3 x 12 self-tap |
+| 4 | 623 bearing into the yoke | 623ZZ |
+| 5 | Pan horn onto the yoke | 2 x M2.5 x 8 self-tap |
+| 6 | Yoke onto the pan spline | horn centre screw (supplied; M3 x 10 for a printed horn) |
+| 7 | Roll servo into the tilt ring | 2 x M2 x 8 self-tap |
+| 8 | 623 bearing into the tilt ring | 623ZZ |
+| 9 | Tilt horn onto the ring | 2 x M2.5 x 8 self-tap |
+| 10 | Empty ring into the yoke (tilt spline) | horn centre screw (supplied; M3 x 10 printed) |
+| 11 | Tilt idler axle | M3 x 12 button head + washer |
+| 12 | Boards onto the bottom deck | 4 boards: 8 x (M2.5 x 10 nylon + 3 mm spacer + nut) |
+| 13 | Wing and boards onto the middle deck | 4 x 10 mm F-F standoff + 8 x M2.5 x 6; 5 boards: 10 x (M2.5 x 10 + spacer + nut) |
+| 14 | Roll horn onto the middle deck | 2 x M2 x 6 self-tap |
+| 15 | Middle deck into the ring (roll spline) | horn centre screw (supplied; M2 x 8 printed) |
+| 16 | Roll idler axle | M3 x 12 button head + washer |
+| 17 | Stack and clamp the decks | 2 x M3 x 50 (up from below) + 2 washers (optional) + 2 nuts |
+| 18 | Cam servo into the striker tower | 2 x M2 x 8 self-tap |
+| 19 | Tower onto the yoke | 4 x M3 x 14 |
+| 20 | Pawl onto the drive leaf | 1.75 mm filament pin |
+| 21 | Drive leaf pinned to the arm | M3 x 20 (drive pin) |
+| 22 | Head stop screw | M3 x 30 nylon + 2 nylon nuts |
+| 23 | Arm and leaf into the tower | M3 x 50 + nut (bushing and 2 spacers on it) |
+| 24 | Drive leaf root pad to the seat | 4 x M3 x 16 |
+| 25 | Cam onto the servo | centre screw (supplied), horn CA-glued in the cam |
+
+**Check results** (main design, 9 boards + wing):
+- **Counts:** match the fixings table, except the M2.5 nuts. The model
+  uses 18, not 22: the wing's F-F standoffs take a screw at each end, so
+  its 4 "+ nut" are not needed.
+- **Coaxial:** worst 0.10 mm. That's the servo tab pilots, which are short
+  slots.
+- **Seats:** worst gap 0.30 mm, the drive pin's designed clearance.
+- **Shanks:** worst 0.10 mm³ (the stop screw's tip on the head leaf). The
+  pan-horn arm screws' self-tapping points reach 0.5 mm past the 5 mm pilots
+  (0.09 mm³).
+- **Access:** clear for every fixing in this order, except the bench screws.
+  A straight driver can't reach them; see step 2.
+
+**Things to check by hand:**
+- **Tilt horn screws:** the arm screws on the tilt ring poke 2.0 mm through
+  the +Y bar into the ring. That leaves about 2 mm to the roll sweep, so an
+  M2.5 x 6 is safer there.
+- **Top deck under the roof:** with `ASSY_BOARDS=all`, two top-deck spots
+  (`top_QT_low3`, `top_QT_high3`, at x = +10.16) have one screw under the
+  roof's overhang. The screw can't go in straight, and a driver can't reach
+  it. That's why the default boards go on the bottom deck. If you use those
+  spots, angle the screw in and turn the nut from below.
+- **`tall_top` stack bolts:** an M3 x 55 bolt can't go up from below with the
+  ring in the yoke (58 mm needed, 54 mm free). Tilt the ring 90° and put the
+  bolts in from the side.
+- **Idler bosses:** both sit 2.4 mm into their bearing's lip hole, and both
+  horns need 3.5–4 mm of travel onto their splines. The ring (roll) and the
+  yoke uprights (tilt) have to spring apart slightly for the press-on.
+
 
 ## Variants
 
@@ -481,7 +653,12 @@ spline, then drive the centre screw through the part's access hole.
 | `pack_faces.py` | Portrait QT board placement options on a swirly grid |
 | `make_sensor_stack.py` | Sensor stack decks, spines, roof, board layout, reference board envelopes |
 | `make_striker.py` | Striker: drive-leaf and head-leaf spring models, hammer arm (rest / parked / as printed), pawl, cam, tower |
-| `make_gimbal.py` | Full gimbal + striker, per-part STEP/STL in `parts/`, clearance checks, `imu-gimbal-assembly.FCStd` |
+| `make_gimbal.py` | Full gimbal + striker, per-part STEP/STL in `parts/`, clearance checks, `imu-gimbal-assembly.FCStd`. `geometry()` builds everything without writing, and records every fixing point (`POINTS`) where a hole is cut |
+| `fixings.py` | Simple fixing models (Part API): socket cap / button / pan / self-tap screws, nuts, washers, spacers, F-F and M-F standoffs, 623ZZ, filament pin |
+| `assembly_plan.py` | Assembly steps, every fixing placed on the generators' fixing points, insertion paths |
+| `assembly_checks.py` | Fixing checks: counts vs this README, coaxial, seated, shank clearance, access on the animation timeline |
+| `make_assembly_animation.py` | Builds `docs/assembly/imu-gimbal-assembly-animated.FCStd`, runs the checks, renders the GIF and step PNGs (`render_assembly_animation.py`) |
+| `docs/assembly/animate_assembly.FCMacro` | Plays the animated assembly in the FreeCAD GUI (and a headless dry run) |
 | `make_swirly_plate.py` | Flat printable swirly plate (env `SWIRLY_ROWS`, `SWIRLY_COLS`, `SWIRLY_SLOT`) |
 | `make_carrier.py` | Older standalone flat plate with Feather bosses (not used by the gimbal) |
 | `preview_swirly.py` | Matplotlib 2D preview |

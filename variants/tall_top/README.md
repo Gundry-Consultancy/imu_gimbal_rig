@@ -65,3 +65,18 @@ From the repo root, after a main build (which writes `build_info.json`):
 ```
 GIMBAL_OUT=variants/tall_top GIMBAL_PIN=build_info.json STACK_UPPER_GAP=25 freecadcmd -c "exec(open('make_gimbal.py').read(), {'__file__': 'make_gimbal.py', '__name__': '__main__'})"
 ```
+
+## Animated assembly
+
+`docs/assembly/imu-gimbal-assembly-animated.FCStd` is this variant's
+step-by-step assembly with every fixing. Play it with the main
+`docs/assembly/animate_assembly.FCMacro`: open the variant document first,
+then run the macro. It is the same 25 steps as the main design. The stack
+bolts are M3 x 55 with no washers (the grip is 52.1 mm). With the ring in
+the yoke there's only 54 mm under the bottom deck, and a bolt plus head needs
+58 mm. Tilt the ring 90° and put the bolts in from the side (the access
+check flags this step). Regenerate it from the repo root:
+
+```
+ASSY_VARIANT=tall_top freecadcmd -c "exec(open('make_assembly_animation.py').read(), {'__file__': 'make_assembly_animation.py', '__name__': '__main__'})"
+```

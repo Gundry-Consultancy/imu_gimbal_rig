@@ -1,0 +1,416 @@
+# -*- coding: utf-8 -*-
+"""Step-by-step assembly animation for imu-gimbal-assembly-animated.FCStd.
+
+Run it from FreeCAD: Macro > Macros... > animate_assembly.FCMacro > Execute.
+
+It opens the animated document (as a temporary copy, so the saved file is never touched),
+or uses it if it is already open (and then restores every placement, visibility and colour
+when you stop). Everything starts hidden; each step's parts and fixings fade in and slide
+from their exploded offsets to their final placements, then the step pauses. The current
+step is in full colour, earlier steps are dimmed. The step title shows in the dialog, the
+status bar, the report view and in the 3D view.
+
+Dialog: |<  <  Play/Pause  >  >|, a step list and a speed slider. Console use (Python console,
+after running the macro once):
+    anim = AssemblyAnim          # the running player
+    anim.goto(5); anim.play(); anim.pause(); anim.next(); anim.prev(); anim.speed = 2.0
+    anim.stop()                  # restores the document and closes the dialog
+
+Dry run (no GUI): freecadcmd -c "exec(open('animate_assembly.FCMacro').read(), {'__name__': '__main__',
+'DRY_RUN': True})" plays every frame of every step headless and checks that the placements
+end exactly on the saved ones and are restored afterwards.
+
+Each animated object carries its timeline in the string property AnimMoves (JSON):
+    [{"step": key, "path": [[x, y, z], ...], "phase": n}, ...]
+The first move is the step it appears in; later moves are sub-assembly carries. A path is
+a polyline of offsets from the final placement, ending at zero. The step list (order,
+titles, phases) is in the StepsJSON property of the "Assembly steps" group.
+"""
+
+import json
+import math
+import os
+
+import FreeCAD as App
+
+DOC_FILE = "imu-gimbal-assembly-animated.FCStd"
+FPS = 30
+STEP_SECONDS = 2.4          # motion per step at speed 1
+PAUSE_SECONDS = 0.8         # hold at the end of each step
+DIM_TRANSPARENCY = 70       # earlier steps
+DIM_FACTOR = 0.45           # ... and their colour is pulled toward grey by this much
+
+
+# --- timeline (pure functions: also used by the dry run, the generator checks and the GIF) ------------
+def smooth(f):
+    f = min(1.0, max(0.0, f))
+    return f * f * (3 - 2 * f)
+
+
+def path_point(path, f):
+    """Point at fraction f (0 = path start, 1 = zero offset) along a polyline of offsets ending at 0."""
+    pts = [tuple(p) for p in path] + [(0.0, 0.0, 0.0)]
+    if f >= 1.0 or len(pts) == 1:
+        return (0.0, 0.0, 0.0)
+    if f <= 0.0:
+        return pts[0]
+    segs = [math.dist(a, b) for a, b in zip(pts, pts[1:])]
+    total = sum(segs) or 1.0
+    d = smooth(f) * total
+    for i, s in enumerate(segs):
+        a, b = pts[i], pts[i + 1]
+        if d <= s or i == len(segs) - 1:
+            k = 0.0 if s == 0 else min(1.0, d / s)
+            return tuple(a[j] + (b[j] - a[j]) * k for j in range(3))
+        d -= s
+    return (0.0, 0.0, 0.0)
+
+
+def phase_fraction(steps, key, phase, cur, u):
+    """Progress (0..1) of a move (step key, phase) when step index cur is at time u (0..1).
+    A step's motion time is split evenly between its phases, in order."""
+    idx = steps["order"][key]
+    if idx < cur:
+        return 1.0
+    if idx > cur:
+        return 0.0
+    ph = steps["phases"][key]
+    n = len(ph)
+    j = ph.index(phase)
+    return min(1.0, max(0.0, u * n - j))
+
+
+def offset_at(moves, steps, cur, u):
+    """(offset (x, y, z), shown, fade 0..1) of an object at step index cur, time u."""
+    off = [0.0, 0.0, 0.0]
+    for m in moves:
+        p = path_point(m["path"], phase_fraction(steps, m["step"], m["phase"], cur, u))
+        for i in range(3):
+            off[i] += p[i]
+    first = moves[0]
+    f0 = phase_fraction(steps, first["step"], first["phase"], cur, u)
+    shown = steps["order"][first["step"]] < cur or f0 > 0.0
+    return tuple(off), shown, min(1.0, f0 * 4.0)
+
+
+def placement_at(final, moves, steps, cur, u):
+    """Placement of an object: exactly `final` once all its moves are done."""
+    off, shown, fade = offset_at(moves, steps, cur, u)
+    if off == (0.0, 0.0, 0.0):
+        return App.Placement(final), shown, fade
+    pl = App.Placement(final)
+    pl.Base = final.Base + App.Vector(*off)
+    return pl, shown, fade
+
+
+def load_steps(doc):
+    """Steps from the 'Assembly steps' group: dict(list=[...], order={key: i}, phases={key: [..]})."""
+    grp = [o for o in doc.Objects if hasattr(o, "StepsJSON")][0]
+    lst = json.loads(grp.StepsJSON)
+    return dict(list=lst, order={s["key"]: i for i, s in enumerate(lst)}, phases={s["key"]: s["phases"] for s in lst})
+
+
+def animated_objects(doc):
+    return [o for o in doc.Objects if hasattr(o, "AnimMoves") and o.AnimMoves]
+
+
+# --- document handling -------------------------------------------------------------------------------
+def _macro_dir():
+    try:
+        return os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        return App.ParamGet("User parameter:BaseApp/Preferences/Macro").GetString("MacroPath", "")
+
+
+def open_animation_doc(path=None):
+    """(doc, owned): an already-open animated document (owned = False: we restore it on stop), or a
+    temporary copy of the saved one (owned = True: closed on stop, the saved file is never written)."""
+    import shutil
+    import tempfile
+    for d in App.listDocuments().values():
+        if any(hasattr(o, "StepsJSON") for o in d.Objects):
+            return d, False
+    path = path or os.path.join(_macro_dir(), DOC_FILE)
+    if not os.path.exists(path) and App.GuiUp:
+        from PySide import QtGui
+        path = QtGui.QFileDialog.getOpenFileName(None, "Animated assembly", _macro_dir(), "FreeCAD (*.FCStd)")[0]
+    tmp = os.path.join(tempfile.mkdtemp(prefix="gimbal_anim_"), os.path.basename(path))
+    shutil.copy(path, tmp)
+    return App.openDocument(tmp), True
+
+
+class Snapshot:
+    """Everything the animation touches, so it can be put back exactly."""
+
+    def __init__(self, objs):
+        self.state = {}
+        for o in objs:
+            vo = o.ViewObject if App.GuiUp else None
+            self.state[o.Name] = (App.Placement(o.Placement), o.Visibility,
+                                  (vo.ShapeColor, vo.Transparency) if vo else None)
+
+    def restore(self, doc):
+        for name, (pl, vis, view) in self.state.items():
+            o = doc.getObject(name)
+            o.Placement = pl
+            o.Visibility = vis
+            if view and App.GuiUp:
+                o.ViewObject.ShapeColor, o.ViewObject.Transparency = view
+
+
+def _dim(c):
+    return tuple(c[i] * (1 - DIM_FACTOR) + 0.8 * DIM_FACTOR for i in range(3))
+
+
+class Player:
+    """Drives the document through the steps. apply(cur, u) is the single place that moves things."""
+
+    def __init__(self, doc, owned=False):
+        self.doc, self.owned = doc, owned
+        self.steps = load_steps(doc)
+        self.objs = animated_objects(doc)
+        self.moves = {o.Name: json.loads(o.AnimMoves) for o in self.objs}
+        self.final = {o.Name: App.Placement(o.Placement) for o in self.objs}
+        self.snap = Snapshot(self.objs)
+        self.cur, self.u, self.hold = 0, 0.0, 0.0
+        self.speed, self.playing = 1.0, False
+        self._view = {}
+        self.listeners = []
+
+    @property
+    def n(self):
+        return len(self.steps["list"])
+
+    def title(self, cur=None):
+        s = self.steps["list"][self.cur if cur is None else cur]
+        return f"Step {s['n']}/{self.n}: {s['title']}"
+
+    def apply(self, cur, u):
+        self.cur, self.u = cur, u
+        key = self.steps["list"][cur]["key"]
+        for o in self.objs:
+            pl, shown, fade = placement_at(self.final[o.Name], self.moves[o.Name], self.steps, cur, u)
+            if not o.Placement.isSame(pl, 0.0):
+                o.Placement = pl
+            if o.Visibility != shown:
+                o.Visibility = shown
+            if App.GuiUp and shown:
+                cur_step = any(m["step"] == key for m in self.moves[o.Name])     # placed or carried now
+                col = tuple(o.IntendedColor[:3]) if cur_step else _dim(o.IntendedColor)
+                tr = int(round((1 - fade) * 80)) if cur_step else DIM_TRANSPARENCY
+                if self._view.get(o.Name) != (col, tr):
+                    o.ViewObject.ShapeColor, o.ViewObject.Transparency = col, tr
+                    self._view[o.Name] = (col, tr)
+        for f in self.listeners:
+            f(self)
+
+    def goto(self, cur, u=0.0):
+        self.hold = 0.0
+        self.apply(max(0, min(self.n - 1, cur)), u)
+
+    def next(self):
+        self.goto(self.cur + 1 if self.u >= 1.0 else self.cur, 1.0 if self.u < 1.0 else 0.0)
+
+    def prev(self):
+        self.goto(self.cur - 1 if self.u <= 0.0 else self.cur, 0.0)
+
+    def tick(self, dt):
+        """Advance the clock by dt seconds (scaled by speed); returns False at the very end."""
+        if self.u < 1.0:
+            self.apply(self.cur, min(1.0, self.u + dt * self.speed / STEP_SECONDS))
+            return True
+        self.hold += dt * self.speed
+        if self.hold < PAUSE_SECONDS:
+            return True
+        if self.cur + 1 >= self.n:
+            return False
+        self.goto(self.cur + 1, 0.0)
+        return True
+
+    def show_extent(self):
+        """Put every object where it starts its own step (the most exploded it gets), shown, so a
+        ViewFit frames the whole animation; call goto() afterwards."""
+        for o in self.objs:
+            m = self.moves[o.Name]
+            o.Placement = placement_at(self.final[o.Name], m, self.steps, self.steps["order"][m[0]["step"]], 0.0)[0]
+            o.Visibility = True
+
+    def restore(self):
+        self.snap.restore(self.doc)
+        self._view = {}
+
+
+# --- GUI: dialog, timer and a title in the 3D view ------------------------------------------------------
+class Hud:
+    """Step title in the top-left of the 3D view (Coin overlay; silently skipped if it fails)."""
+
+    def __init__(self):
+        self.root = None
+        try:
+            from pivy import coin
+            import FreeCADGui as Gui
+            self.sg = Gui.ActiveDocument.ActiveView.getSceneGraph()
+            self.root = coin.SoSeparator()
+            cam = coin.SoOrthographicCamera()
+            cam.viewportMapping = coin.SoCamera.LEAVE_AS_IS
+            pos = coin.SoTranslation()
+            pos.translation = (-0.95, 0.88, 0)
+            col = coin.SoBaseColor()
+            col.rgb = (0.05, 0.05, 0.1)
+            font = coin.SoFont()
+            font.size = 20
+            self.text = coin.SoText2()
+            for n in (cam, pos, col, font, self.text):
+                self.root.addChild(n)
+            self.sg.addChild(self.root)
+        except Exception as e:                       # noqa: BLE001
+            App.Console.PrintWarning(f"assembly animation: no 3D-view title ({e})\n")
+            self.root = None
+
+    def set(self, s):
+        if self.root:
+            self.text.string = s
+
+    def remove(self):
+        if self.root:
+            self.sg.removeChild(self.root)
+            self.root = None
+
+
+def run_gui():
+    import FreeCADGui as Gui
+    from PySide import QtCore, QtGui
+
+    doc, owned = open_animation_doc()
+    Gui.setActiveDocument(doc.Name)
+    player = Player(doc, owned)
+    hud = Hud()
+    dlg = QtGui.QDialog(Gui.getMainWindow())
+    dlg.setWindowTitle("Assembly animation")
+    lay = QtGui.QVBoxLayout(dlg)
+    title = QtGui.QLabel()
+    title.setWordWrap(True)
+    f = title.font()
+    f.setBold(True)
+    f.setPointSize(f.pointSize() + 2)
+    title.setFont(f)
+    lay.addWidget(title)
+    steps = QtGui.QListWidget()
+    for s in player.steps["list"]:
+        steps.addItem(f"{s['n']:2d}  {s['title']}")
+    lay.addWidget(steps)
+    row = QtGui.QHBoxLayout()
+    btn = {k: QtGui.QPushButton(k) for k in ("|<", "<", "Play", ">", ">|")}
+    for b in btn.values():
+        row.addWidget(b)
+    lay.addLayout(row)
+    srow = QtGui.QHBoxLayout()
+    srow.addWidget(QtGui.QLabel("Speed"))
+    speed = QtGui.QSlider(QtCore.Qt.Horizontal)
+    speed.setRange(-4, 8)                      # 2 ** (v / 2): 0.25x .. 16x
+    speed.setValue(0)
+    srow.addWidget(speed)
+    slabel = QtGui.QLabel("1.0x")
+    srow.addWidget(slabel)
+    lay.addLayout(srow)
+    stop = QtGui.QPushButton("Stop and restore")
+    lay.addWidget(stop)
+    timer = QtCore.QTimer(dlg)
+    timer.setInterval(int(1000 / FPS))
+    last = [player.cur]
+
+    def on_change(p):
+        t = p.title()
+        title.setText(t)
+        hud.set(t)
+        if last[0] != p.cur or p.u == 0.0:
+            last[0] = p.cur
+            steps.setCurrentRow(p.cur)
+            Gui.getMainWindow().statusBar().showMessage(t)
+            App.Console.PrintMessage(t + "\n")
+        Gui.updateGui()
+
+    player.listeners.append(on_change)
+
+    def set_playing(on):
+        player.playing = on
+        btn["Play"].setText("Pause" if on else "Play")
+        timer.start() if on else timer.stop()
+
+    def tick():
+        if not player.tick(1.0 / FPS):
+            set_playing(False)
+
+    def finish(*_):
+        timer.stop()
+        hud.remove()
+        player.restore()
+        if player.owned:
+            App.closeDocument(doc.Name)
+        globals().pop("AssemblyAnim", None)
+
+    timer.timeout.connect(tick)
+    btn["Play"].clicked.connect(lambda: set_playing(not player.playing))
+    btn["<"].clicked.connect(lambda: (set_playing(False), player.prev()))
+    btn[">"].clicked.connect(lambda: (set_playing(False), player.next()))
+    btn["|<"].clicked.connect(lambda: (set_playing(False), player.goto(0)))
+    btn[">|"].clicked.connect(lambda: (set_playing(False), player.goto(player.n - 1, 1.0)))
+    steps.itemDoubleClicked.connect(lambda it: (set_playing(False), player.goto(steps.row(it))))
+    speed.valueChanged.connect(lambda v: (setattr(player, "speed", 2 ** (v / 2)), slabel.setText(f"{2 ** (v / 2):.2g}x")))
+    stop.clicked.connect(dlg.close)
+    dlg.finished.connect(finish)
+    player.stop = dlg.close
+    player.play, player.pause = (lambda: set_playing(True)), (lambda: set_playing(False))
+    Gui.activeDocument().activeView().viewIsometric()
+    player.show_extent()
+    Gui.updateGui()
+    Gui.SendMsgToActiveView("ViewFit")
+    player.goto(0)
+    dlg.show()
+    set_playing(True)
+    return player
+
+
+# --- dry run (headless) ------------------------------------------------------------------------------------
+def dry_run(path=None, fps=FPS):
+    """Play every frame of every step without a GUI. Checks: placements interpolate without jumps
+    between steps, every object ends exactly on its saved placement, and restore() puts back the
+    document exactly. Returns a dict of results (and prints them)."""
+    doc, owned = open_animation_doc(path)
+    p = Player(doc, owned)
+    saved = {o.Name: App.Placement(o.Placement) for o in p.objs}
+    frames = max(2, int(STEP_SECONDS * fps))
+    n_frames, max_jump, prev, worst_step_end = 0, 0.0, None, 0.0
+    for cur in range(p.n):
+        for k in range(frames + 1):
+            p.apply(cur, k / frames)
+            n_frames += 1
+            now = {o.Name: App.Vector(o.Placement.Base) for o in p.objs}
+            if k == 0 and prev is not None:            # step boundary: end of last == start of this
+                max_jump = max(max_jump, max((now[n] - prev[n]).Length for n in now))
+            prev = now
+        done = [o for o in p.objs if all(p.steps["order"][m["step"]] <= cur for m in p.moves[o.Name])]
+        for o in done:                                  # finished objects sit exactly on their final placement
+            if not (o.Placement.Base == p.final[o.Name].Base and o.Placement.Rotation.Q == p.final[o.Name].Rotation.Q):
+                worst_step_end = max(worst_step_end, (o.Placement.Base - p.final[o.Name].Base).Length or 1e-12)
+    end_exact = all(o.Placement.Base == p.final[o.Name].Base and o.Placement.Rotation.Q == p.final[o.Name].Rotation.Q
+                    and o.Visibility for o in p.objs)
+    p.restore()
+    restored = all(o.Placement.Base == saved[o.Name].Base and o.Placement.Rotation.Q == saved[o.Name].Rotation.Q
+                   for o in p.objs)
+    res = dict(steps=p.n, objects=len(p.objs), frames=n_frames, max_jump_between_steps=max_jump,
+               final_exact=end_exact, finished_objects_exact=worst_step_end == 0.0, restored_exact=restored)
+    print("dry run:", res)
+    if owned:
+        App.closeDocument(doc.Name)
+    return res
+
+
+if __name__ == "__main__":
+    if globals().get("DRY_RUN") or not App.GuiUp:
+        _res = dry_run(globals().get("DOC_PATH"))
+        if not (_res["final_exact"] and _res["finished_objects_exact"] and _res["restored_exact"]
+                and _res["max_jump_between_steps"] < 1e-9):
+            raise SystemExit("assembly animation dry run FAILED")
+    else:
+        AssemblyAnim = run_gui()

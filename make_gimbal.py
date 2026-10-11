@@ -277,6 +277,48 @@ def servo_plate(s, x_ext, y_ext, thickness=SERVO_PLATE_T):
 # Where each plate and horn pocket ended up (for the verification script): name -> placement.
 PLATES = {}
 HORNS = {}
+# Fixing points (for make_assembly_animation.py), recorded where the geometry cuts each hole:
+# pos = the point on the seating face where a head / washer / nut / bearing sits, axis = that
+# face's outward normal (a screw goes in along -axis), dia / depth = the hole, kind = what
+# the hole is ('through', 'pilot', 'pocket', ...). Extra keys depend on the kind.
+POINTS = []
+
+
+def point(key, part, kind, pos, axis, dia, depth, **meta):
+    POINTS.append(dict(key=key, part=part, kind=kind, pos=V(pos), axis=V(axis).normalize(), dia=dia, depth=depth,
+                       **meta))
+
+
+def _to_world(pl, p):
+    """Servo- / horn-local point -> world, for a PLATES / HORNS entry."""
+    x, z = V(pl["x"]).normalize(), V(pl["z"]).normalize()
+    y = z.cross(x)
+    return pl["origin"] + x * p[0] + y * p[1] + z * p[2]
+
+
+def plate_points(name):
+    """Tab screw points of the servo in PLATES[name]: head seat on the tab top, axis = shaft."""
+    pl = PLATES[name]
+    s = pl["servo"]
+    z_tab = -s["spline_above_tab"]
+    depth = s["tab_t"] + BOSS_FACTOR * pl["t"]
+    for i, (xa, xb, y, r) in enumerate(servo_pilots(s)):
+        point(f"{name}_tab{i}", name, "pilot", _to_world(pl, ((xa + xb) / 2, y, z_tab)), pl["z"], 2 * r, depth,
+              servo=s, slot=abs(xb - xa))
+
+
+def horn_points(name):
+    """Horn on HORNS[name]: the horn seat (part face, axis toward the servo), the two arm-screw
+    pilots (head on the horn's servo side) and the centre screw (head in the access hole)."""
+    hn = HORNS[name]
+    h = hn["horn"]
+    z = V(hn["z"]).normalize()
+    point(f"{name}_horn", name, "horn", hn["origin"], z, h["centre"], h["depth"], horn=h, frame=hn)
+    if h.get("pilot"):
+        for i, x in enumerate((-h["len"] / 2 + HORN_SCREW_INSET, h["len"] / 2 - HORN_SCREW_INSET)):
+            point(f"{name}_hornarm{i}", name, "pilot", _to_world(hn, (x, 0, 0)), z, h["pilot"],
+                  h["depth"] + 5.0, horn=h)
+    point(f"{name}_horncentre", name, "access", _to_world(hn, (0, 0, -h["depth"])), -z, h["centre"], 0.0, horn=h)
 
 
 def _teardrop(r, up, z0, z1):
@@ -400,10 +442,21 @@ def sensor_body():
     h_o, h_x, h_z = V(BODY_HALF_X, 0, 0), (0, 1, 0), (1, 0, 0)
     horn = placed(horn_pocket(MG90S["horn"], through=ss.WALL_T + ss.RIB_D + 2, up=[(0, 1)]), h_o, h_x, h_z)
     HORNS["stack_middle_deck"] = dict(horn=MG90S["horn"], origin=h_o, x=h_x, z=h_z)
+    horn_points("stack_middle_deck")
     boss_len = RING_GAP + (RING_BRG_PLATE_T - BRG_W)
     boss, pilot = axle_boss(V(-BODY_HALF_X, 0, 0), (-1, 0, 0), boss_len, boss_len + ss.WALL_T - 0.5)
+    point("stack_axle", "stack_middle_deck", "pilot", V(-BODY_HALF_X - boss_len, 0, 0), (-1, 0, 0), M3_PILOT,
+          boss_len + ss.WALL_T - 0.5)
     for c in (horn, boss, pilot):
         c.translate(up)
+    for i, b in enumerate(ss.stack_bolt_points()):
+        point(f"stack_bolt{i}", "stack_top_deck", "through", b["head"] - up, (0, 0, 1), b["hole"], b["grip"],
+              nut=b["nut"] - up)
+    for b in ss.board_layout():
+        for i, (x, y) in enumerate(b["holes"]):
+            point(f"board_{b['name']}_{i}", f"stack_{b['deck']}_deck", "slot" if b["kind"] == "qt" else "slot_wing",
+                  V(x, y, b["deck_top"]) - up, (0, 0, 1), ss.SLOT_WIDTH, b["deck_top"] - b["deck_bottom"],
+                  board=b["name"], board_kind=b["kind"], mount_h=b["mount_h"], pcb_t=ss.PCB_T)
     lower, upper = ss.spines()
     parts = [("stack_middle_deck", ss.middle_deck(horn, boss, pilot)),
              ("stack_top_deck", ss.top_deck()),
@@ -425,6 +478,7 @@ def tilt_ring(servo, ring_in_y):
     plate, plate_cuts, bosses = servo_plate(servo, (-servo["offset"] - tab_z, -servo["offset"] + tab_z),
                                             (-ring_out_y, ring_out_y))
     PLATES["tilt_ring_mg90s"] = dict(servo=servo, t=SERVO_PLATE_T, origin=s_origin, x=s_x, z=s_z)
+    plate_points("tilt_ring_mg90s")
     plate = placed(plate, s_origin, s_x, s_z)
     bosses = placed(bosses, s_origin, s_x, s_z)
     plate_cuts = [placed(c, s_origin, s_x, s_z) for c in plate_cuts]
@@ -446,6 +500,7 @@ def tilt_ring(servo, ring_in_y):
     shape = plate.fuse([brg_plate, horn_boss, bosses] + bars)
 
     cuts = plate_cuts + [bearing_housing_cut(V(brg_out, 0, 0), (-1, 0, 0))]
+    point("ring_bearing", "tilt_ring_mg90s", "pocket", V(brg_out, 0, 0), (-1, 0, 0), BRG_POCKET, BRG_W)
     # lightening: one window in each servo-plate wing, two in each bearing-plate wing (prints flat, z up)
     for sy in (-1, 1):
         u0, u1 = sorted((sy * 12.0, sy * (ring_in_y - 4.0)))
@@ -459,9 +514,12 @@ def tilt_ring(servo, ring_in_y):
     h_o, h_x, h_z = V(0, ring_out_y, 0), (1, 0, 0), (0, 1, 0)
     cuts.append(placed(horn_pocket(STANDARD["horn"], through=RING_BAR_T + 2, up=[(0, -1)]), h_o, h_x, h_z))
     HORNS["tilt_ring_mg90s"] = dict(horn=STANDARD["horn"], origin=h_o, x=h_x, z=h_z)
+    horn_points("tilt_ring_mg90s")
     # -Y: axle boss into the yoke bearing
     boss_len = YOKE_GAP + (YOKE_BRG_T - BRG_W)
     boss, pilot = axle_boss(V(0, -ring_out_y, 0), (0, -1, 0), boss_len, boss_len + RING_BAR_T - 0.5)
+    point("ring_axle", "tilt_ring_mg90s", "pilot", V(0, -ring_out_y - boss_len, 0), (0, -1, 0), M3_PILOT,
+          boss_len + RING_BAR_T - 0.5)
     shape = shape.fuse(boss).cut(Part.makeCompound(cuts + [pilot]))
     servo_env = placed(servo_envelope(servo), s_origin, s_x, s_z)
     brg_env = bearing_envelope(V(brg_out, 0, 0), (-1, 0, 0))
@@ -492,6 +550,7 @@ def pan_yoke(ring_out_y, tilt_clear_r):
     plate, plate_cuts, bosses = servo_plate(s, (-s["offset"] - tab_half, -s["offset"] + tab_half),
                                             (-YOKE_HALF_X, YOKE_HALF_X), thickness=YOKE_PLATE_T)
     PLATES["pan_yoke"] = dict(servo=s, t=YOKE_PLATE_T, origin=t_origin, x=t_x, z=t_z)
+    plate_points("pan_yoke")
     plate = placed(plate, t_origin, t_x, t_z)
     bosses = placed(bosses, t_origin, t_x, t_z)
     # extend the servo plate down to the floor
@@ -518,6 +577,9 @@ def pan_yoke(ring_out_y, tilt_clear_r):
 
     shape = floor.fuse([servo_upright, idler_upright, bosses] + gussets + floor_bosses)
     cuts += plate_cuts + [bearing_housing_cut(V(0, brg_out, 0), (0, -1, 0), YOKE_BRG_T)]
+    point("yoke_bearing", "pan_yoke", "pocket", V(0, brg_out, 0), (0, -1, 0), BRG_POCKET, BRG_W)
+    for i, (x, z) in enumerate(STAND_BOLTS):
+        point(f"yoke_stand{i}", "pan_yoke", "pilot", V(x, brg_out, z), (0, -1, 0), M3_PILOT, YOKE_BRG_T)
     # M3 pilots for the striker stand on the idler upright's outer face
     cuts += [Part.makeCylinder(M3_PILOT / 2, YOKE_BRG_T + 2, V(x, brg_out - 1, z), V(0, 1, 0)) for x, z in STAND_BOLTS]
     # lightening windows (prints on its side, so world x is up): uprights below the servo plate and the
@@ -534,6 +596,7 @@ def pan_yoke(ring_out_y, tilt_clear_r):
     h_o, h_x, h_z = V(0, 0, floor_bot), (0, 1, 0), (0, 0, -1)
     cuts.append(placed(horn_pocket(h, through=YOKE_FLOOR_T + 2, up=[(0, 1), (0, -1)]), h_o, h_x, h_z))
     HORNS["pan_yoke"] = dict(horn=h, origin=h_o, x=h_x, z=h_z)
+    horn_points("pan_yoke")
     shape = shape.cut(Part.makeCompound(cuts)).removeSplitter()
     servo_env = placed(servo_envelope(s), t_origin, t_x, t_z)
     brg_env = bearing_envelope(V(0, brg_out, 0), (0, -1, 0))
@@ -549,6 +612,7 @@ def base(yoke_floor_bot):
     p_x, p_z = (1, 0, 0), (0, 0, 1)
     plate, plate_cuts, bosses = servo_plate(s, (-48, 28), (-35, 35))
     PLATES["base"] = dict(servo=s, t=SERVO_PLATE_T, origin=p_origin, x=p_x, z=p_z)
+    plate_points("base")
     plate = placed(plate, p_origin, p_x, p_z)
     bosses = placed(bosses, p_origin, p_x, p_z)
     plate_cuts = [placed(c, p_origin, p_x, p_z) for c in plate_cuts]
@@ -568,6 +632,9 @@ def base(yoke_floor_bot):
     shape = plate.fuse([foot, bosses] + walls + bench_bosses)
     cuts = plate_cuts
     cuts += [Part.makeCylinder(BENCH_HOLE / 2, 2 * foot_t + 2, V(x, y, foot_top - foot_t - 1)) for x, y in bench]
+    for i, (x, y) in enumerate(bench):
+        point(f"base_bench{i}", "base", "through", V(x, y, foot_top + foot_t), (0, 0, 1), BENCH_HOLE, 2 * foot_t,
+              bench=V(x, y, foot_top - foot_t))
     # lightening windows (prints on its closed -X end, so world x is up)
     for sy in (-1, 1):
         u0, u1 = sorted((sy * 15.0, sy * (pb.YMax - wall_t - 3)))
@@ -685,8 +752,12 @@ def striker_limits(roll_parts, rings, striker_parked, striker_rest, yoke_parts, 
     return out
 
 
-def build(variants=(MG90S_TAB,), check=True):
-    os.makedirs(PARTS_DIR, exist_ok=True)
+def geometry(variants=(MG90S_TAB,)):
+    """Every part, envelope and fixing point, with no checks, exports or files written.
+    Returns a dict; build() adds the clearance checks, the FCStd and parts/."""
+    POINTS.clear()
+    PLATES.clear()
+    HORNS.clear()
     stack_parts, board_refs = sensor_body()
     roll_parts = [shp for _, shp in stack_parts] + [b for _, b in board_refs]
     roll_r = max_radius(roll_parts, (1, 0, 0))
@@ -707,9 +778,6 @@ def build(variants=(MG90S_TAB,), check=True):
         assert pinned["tilt_clear_r"] - tilt_r >= PIN_MIN_CLEAR, "variant no longer fits the base yoke"
         tilt_clear_r = pinned["tilt_clear_r"]
     print(f"tilt sweep radius {tilt_r:.1f} -> yoke floor at z={-tilt_clear_r:.1f}", flush=True)
-    with open(os.path.join(OUT_DIR, "build_info.json"), "w") as f:
-        json.dump(dict(ring_in_y=ring_in_y, tilt_clear_r=tilt_clear_r, stack_gaps=list(ss.GAPS),
-                       roof_raise=ss.roof_raise()), f, indent=1)
 
     yoke, tilt_servo, yoke_brg, yoke_floor_bot, upright_out_y = pan_yoke(ring_in_y + RING_BAR_T, tilt_clear_r)
     base_shape, pan_servo = base(yoke_floor_bot)
@@ -730,6 +798,21 @@ def build(variants=(MG90S_TAB,), check=True):
               f"{[round(v, 1) for v in (shp.BoundBox.XLength, shp.BoundBox.YLength, shp.BoundBox.ZLength)]}",
               flush=True)
         assert shp.isValid() and len(shp.Solids) == 1, name
+    return dict(stack_parts=stack_parts, board_refs=board_refs, roll_parts=roll_parts, rings=rings,
+                ring_in_y=ring_in_y, tilt_r=tilt_r, tilt_clear_r=tilt_clear_r, yoke=yoke, tilt_servo=tilt_servo,
+                yoke_brg=yoke_brg, base=base_shape, pan_servo=pan_servo, st=st, printed=printed,
+                points=list(POINTS), plates=dict(PLATES), horns=dict(HORNS))
+
+
+def build(variants=(MG90S_TAB,), check=True):
+    os.makedirs(PARTS_DIR, exist_ok=True)
+    g = geometry(variants)
+    stack_parts, board_refs, roll_parts, rings = g["stack_parts"], g["board_refs"], g["roll_parts"], g["rings"]
+    ring_in_y, tilt_r, tilt_clear_r, st, printed = g["ring_in_y"], g["tilt_r"], g["tilt_clear_r"], g["st"], g["printed"]
+    yoke, tilt_servo, yoke_brg, base_shape, pan_servo = g["yoke"], g["tilt_servo"], g["yoke_brg"], g["base"], g["pan_servo"]
+    with open(os.path.join(OUT_DIR, "build_info.json"), "w") as f:
+        json.dump(dict(ring_in_y=ring_in_y, tilt_clear_r=tilt_clear_r, stack_gaps=list(ss.GAPS),
+                       roof_raise=ss.roof_raise()), f, indent=1)
 
     if check:
         for tab, (ring, roll_servo, ring_brg) in rings.items():
