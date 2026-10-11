@@ -1,5 +1,14 @@
 # Servo control spec (for writing the control script)
 
+Bench follow-up: [11-12 October 2026 servo report](servo_bench_2026-10-11.md).
+The operator confirmed physical rest at **500 us** and estimated the opposite
+endpoint near **2650-2670 us**. Increasing pulse turned anticlockwise viewed from
+the gear face. Stalling under load made nominal command angles unreliable.
+A powered endpoint cycle clicked, but neither the exact release pulse nor the
+model-to-hardware angular origin is calibrated. For the physical mechanism use
+[the slow pulse-based controller](../examples/cam_pulse_control.py); the angle
+sequences below remain model specifications, not bench-validated procedures.
+
 Angles come from the model (`make_striker.py` LOBES, `striker_motion.py`
 PROGRAMME, `make_motion.py` joint limits). The main design and `tall_top` use
 the same angles.

@@ -906,3 +906,12 @@ freecadcmd -c "exec(open('make_gimbal.py').read(), {'__file__': 'make_gimbal.py'
   screws in the swirly grid at once. Three holes fit in 32 placements on a
   3x3 grid, and two holes fit in hundreds. Plan on 2–3 screws per board.
 - Slots print at 2.75 mm (nominal 2.54 mm) so M2.5 screws pass on FDM.
+
+## Servo bench examples
+
+[CircuitPython and Blinka examples](examples/README.md) provide horn centering,
+unloaded travel checks, and the planned model sequence. The
+[11-12 October 2026 bench report](docs/servo_bench_2026-10-11.md) records pulse
+mapping, all angle/pulse commands, axis alignment trims, and load-related
+sticking. Use the slow pulse-based cam controller for the physical rig;
+model-angle motion remains uncalibrated.
