@@ -1,5 +1,13 @@
 # Servo setup and later tests
 
+**Cam servo replaced by an MG995 (12 October, model change only; not run on
+hardware).** The cam now has two lobes inside the MG995's ~180°. Rest is still
+**500 us** (model 0), and increasing pulse turns the cam forward (`direction=1`).
+Nominal model pulses (`us = 500 + angle * 2000 / 180`) are: park 69° = 1267 us,
+single tap 87° = 1467 us, double-tap end 165° = 2333 us. See
+[the servo spec](../docs/servo_control.md) for the calibration steps.
+`CALIBRATED` stays false until then.
+
 **Latest bench mapping (12 October):** physical rest is **500 us / 0.500 ms**;
 the opposite endpoint is estimated at **2650-2670 us / 2.650-2.670 ms**. Use
 [`cam_pulse_control.py`](cam_pulse_control.py) for slow cam-only sweeps. The
@@ -28,7 +36,7 @@ Adafruit libraries or hardware.
 | Joint | FeatherWing output (zero based) | Neutral pulse | Travel |
 | --- | --- | --- | --- |
 | Tilt, next big servo | 0 (first) | 1500 us | 180 degrees initially; verify your variant |
-| Cam / spring servo | 1 (second) | 1500 us | 270 degrees |
+| Cam / spring servo (MG995) | 1 (second) | 1500 us | 180 degrees (nominal) |
 | Roll (inferred remaining output) | 2 (third) | 1450 us | 180 degrees |
 | Pan, bottom servo | 3 (fourth) | 1500 us | 270 degrees |
 
@@ -36,7 +44,7 @@ The driver is **PCA9685** (the request's PCA9865 appears to be a transposition).
 Roll neutral is the spec's approximate 1450 us midpoint of 500--2400 us;
 measure it on your servo. Change `SERVOS` in `gimbal_servos.py` for channels,
 travel, pulse limits, neutral trims and signs. Pan/tilt/roll zero means home.
-Cam neutral is mid-travel (about 135 degrees), **not rest**. Center with the
+Cam neutral is mid-travel (about 90 degrees), **not rest**. Center with the
 horns and cam detached. Fit the cam at its verified rest endpoint, not neutral.
 
 ## Existing CircuitPython device
@@ -76,10 +84,9 @@ rig.off()
 `pulse` is an unloaded calibration tool, not an assembled motion command.
 Gradually approach endpoints in small increments; the initial 500--2500 us
 (roll 500--2400 us) limits are model/spec assumptions, not measured safe limits.
-Check cam direction before fitting: increasing model angle must turn clockwise
-seen from +X. `direction=1` maps cam 0 to min_us and 270 to max_us;
-`direction=-1` reverses this model mapping. It is retained for the historical
-angle experiments, not as a validated physical rest mapping; use the pulse controller. Fit the cam at that selected rest endpoint.
+Check cam direction before fitting: increasing pulse must turn the MG995's spline
+anticlockwise seen from its gear face (the model's forward). `direction=1` maps
+cam 0 to min_us (500 us, rest) and 180 to max_us. Fit the cam at 500 us.
 For the axes, positive is anticlockwise looking toward the origin down the axis.
 
 ## Tests after calibration and assembly
@@ -99,19 +106,20 @@ rig.sweep("pan", amplitude=10)
 rig.sweep("tilt", amplitude=10)      # Parks before tilt/roll; eases each axis move.
 rig.sweep("roll", amplitude=10)
 rig.home()
-rig.tap()                          # Re-arm 0 -> 120, then 134; leaves cam at 134.
-rig.tap(double=True)               # Re-arm, then 120 -> 134 -> 244 -> 254.
-rig.tap(double=True, gap=0.5)       # Adds ~0.5 s by slowing the ramp to 244.
-rig.rearm()                        # 0 -> 120.
+rig.tap()                          # Re-arm 0 -> 69, then 87; leaves cam at 87.
+rig.tap(double=True)               # Re-arm, then 69 -> 165 in one full-speed move.
+rig.tap(double=True, gap=0.5)       # 69 -> 87, ease over lobe 2 to 149, then 165.
+rig.rearm()                        # 0 -> 69.
 rig.rest()                         # 0, only when tilt/roll are home.
 ```
 
-Only run taps after verifying clearances. Release angles 134/254 are model-derived
-and unverified on hardware. Adjust `RELEASE_A` / `RELEASE_B` only within the
-respective 125--135 / 245--255 release region; changing geometry needs a new
-sequence review. Single taps wait for travel and about 0.2 s settling. Double
-taps avoid the extra settling pause between releases; nominal tap spacing is
-about 0.2 s, based on 0.1 s/60 degrees. USB, load and servo speed affect timing.
+Only run taps after verifying clearances. Release angles 87/165 are model-derived
+(the pawl leaves cliffs 73/151 by 75.2/153.2) and unverified on hardware.
+`RELEASE_A` must stay 10 degrees past cliff 1 and 5 before lobe 2's ramp (97);
+`RELEASE_B` must stay 10 degrees past cliff 2 and at or under 170. Changing the
+geometry needs a new sequence review. Single taps wait for travel and about 0.2 s
+settling. A double tap is one move through both cliffs; the drops are 78 degrees
+apart, about 0.21 s at 6 V and 0.26 s at 4.8 V (MG995 no-load speed). USB, load and servo speed affect timing.
 No commanded dwell is allowed inside the release-corner intervals. Motion waits
 estimate travel and settling; they do not detect jams or verify actual position.
 

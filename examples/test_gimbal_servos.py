@@ -4,7 +4,7 @@ import copy
 import math
 import unittest
 
-from gimbal_servos import SERVOS, Rig, pulse_for, validate
+from gimbal_servos import PARK_A, PARK_B, RELEASE_A, RELEASE_B, SERVOS, Rig, pulse_for, validate
 
 
 class ServoTests(unittest.TestCase):
@@ -28,17 +28,20 @@ class ServoTests(unittest.TestCase):
                 self.assertEqual(pulse_for(name, -limit), SERVOS[name]["min_us"])
                 self.assertEqual(pulse_for(name, 0), SERVOS[name]["center_us"])
                 self.assertEqual(pulse_for(name, limit), SERVOS[name]["max_us"])
-        self.assertEqual(pulse_for("cam", 0), 2500)
-        self.assertEqual(pulse_for("cam", 270), 500)
+        self.assertEqual(pulse_for("cam", 0), 500)  # MG995 rest at the low-pulse end
+        self.assertEqual(pulse_for("cam", 180), 2500)
+        self.assertAlmostEqual(pulse_for("cam", PARK_A), 500 + PARK_A * 2000 / 180)
+        with self.assertRaises(ValueError):
+            pulse_for("cam", 181)
 
     def test_reverse_and_270_tilt(self):
         config = copy.deepcopy(SERVOS)
-        config["cam"]["direction"] = 1
+        config["cam"]["direction"] = -1
         config["tilt"]["travel"] = 270
         config["tilt"]["direction"] = -1
         validate(config)
-        self.assertEqual(pulse_for("cam", 0, config), 500)
-        self.assertEqual(pulse_for("cam", 270, config), 2500)
+        self.assertEqual(pulse_for("cam", 0, config), 2500)
+        self.assertEqual(pulse_for("cam", 180, config), 500)
         self.assertEqual(pulse_for("tilt", 135, config), 500)
 
     def test_bad_config_and_nonfinite_angles(self):
@@ -69,8 +72,8 @@ class ServoTests(unittest.TestCase):
     def test_start_parks_and_waits_before_axes(self):
         rig, writes, waits = self.rig()
         rig.start_home_rest(confirmed=True)
-        self.assertEqual(writes[0], (1, pulse_for("cam", 120)))
-        self.assertGreaterEqual(waits[0], 0.5)
+        self.assertEqual(writes[0], (1, pulse_for("cam", PARK_A)))
+        self.assertGreaterEqual(waits[0], 0.3)
         self.assertEqual([ch for ch, _ in writes[1:]], [3, 0, 2])
 
     def test_tilt_parks_before_motion(self):
@@ -78,7 +81,7 @@ class ServoTests(unittest.TestCase):
         rig.rest()
         writes.clear()
         rig.move("tilt", 10)
-        self.assertEqual(writes[0], (1, pulse_for("cam", 120)))
+        self.assertEqual(writes[0], (1, pulse_for("cam", PARK_A)))
         self.assertTrue(all(ch == 0 for ch, _ in writes[1:]))
 
     def test_pan_does_not_park(self):
@@ -103,22 +106,32 @@ class ServoTests(unittest.TestCase):
                 rig.sweep("roll", amplitude)
         self.assertEqual(writes, [])
 
+    def test_single_tap_sequence(self):
+        rig, writes, _ = self.rig(ready=True)
+        rig.tap()
+        self.assertEqual(writes, [(1, pulse_for("cam", a)) for a in (0, PARK_A, RELEASE_A)])
+
     def test_double_tap_sequence_and_gap(self):
         rig, writes, waits = self.rig(ready=True)
         rig.tap(double=True)
-        self.assertEqual(
-            writes, [(1, pulse_for("cam", a)) for a in (0, 120, 134, 244, 254)]
-        )
-        # Between the two release commands: first travel + ramp travel, no 0.2s hold.
-        self.assertLess(sum(waits[2:-1]), 0.25)
+        # One full-speed move from park through both cliffs.
+        self.assertEqual(writes, [(1, pulse_for("cam", a)) for a in (0, PARK_A, RELEASE_B)])
         rig2, writes2, waits2 = self.rig(ready=True)
         rig2.tap(double=True, gap=0.5)
+        self.assertEqual(writes2[-1], (1, pulse_for("cam", RELEASE_B)))
+        self.assertIn((1, pulse_for("cam", PARK_B)), writes2)
         self.assertGreater(len(writes2), len(writes))
-        self.assertAlmostEqual(sum(waits2) - sum(waits), 0.5)
+
+    def test_park_after_tap_goes_through_rest(self):
+        rig, writes, _ = self.rig(ready=True)
+        rig.tap()
+        writes.clear()
+        rig.park()  # reverse folds the pawl: must re-arm from rest
+        self.assertEqual(writes, [(1, pulse_for("cam", a)) for a in (0, PARK_A)])
 
     def test_release_corner_rejected(self):
         rig, writes, _ = self.rig(ready=True)
-        for angle in (126, 133, 246, 253):
+        for angle in (72, 80, 86, 150, 160, 164):
             with self.assertRaises(ValueError):
                 rig._cam(angle)
         self.assertEqual(writes, [])

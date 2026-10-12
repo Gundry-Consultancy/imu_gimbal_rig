@@ -18,11 +18,11 @@ SERVOS = {
     },
     "cam": {
         "channel": 1,
-        "travel": 270,
+        "travel": 180,  # MG995 (2026-10-12): nominal 180 deg over 500-2500 us; measure
         "min_us": 500,
         "center_us": 1500,
         "max_us": 2500,
-        "direction": -1,
+        "direction": 1,  # increasing pulse = cam forward (anticlockwise seen from the gear face)
     },
     "roll": {
         "channel": 2,
@@ -41,7 +41,9 @@ SERVOS = {
         "direction": 1,
     },
 }
-# Decreasing pulse turned clockwise, but the model angle origin is NOT calibrated.
+# Cam: MG995 on the tower's +X wall. Rest = model 0 = 500 us (the low-pulse end); increasing pulse
+# turns the cam forward, anticlockwise seen from its gear face (as observed on 11 October).
+# Model angle -> pulse: us = 500 + angle * 2000 / 180, until the MG995 is calibrated.
 # Bench-confirmed rest is 500 us; use cam_pulse_control.py for the physical rig.
 # Full model motion and angle-based automatic taps remain uncalibrated.
 # Axis trims from the session are recorded in docs/servo_bench_2026-10-11.md.
@@ -50,8 +52,13 @@ CALIBRATED = False
 ADDRESS = 0x40
 FREQUENCY = 50
 REFERENCE_CLOCK = 25000000
-RELEASE_A = 134
-RELEASE_B = 254
+# Cam angles (deg from rest) from make_striker.LOBES = (15, 65, 73), (97, 147, 151):
+PARK_A = 69  # lobe 1 dwell 65-73: hammer parked 48 deg up (gimbal moves, single and double tap)
+PARK_B = 149  # lobe 2 dwell 147-151 (reached only during a double tap)
+CLIFF_A, CLIFF_B = 73, 151  # the pawl rolls off these corners by ~75.2 and ~153.2 (model)
+RAMP_B = 97  # lobe 2's ramp starts here: a single tap must stop short of it
+RELEASE_A = 87  # single tap: 11.8 deg past the modelled drop, 10 before lobe 2
+RELEASE_B = 165  # double tap end: 11.8 deg past the second drop, 15 short of 180
 
 
 def number(value):
@@ -73,7 +80,7 @@ def validate(servos):
         if not 400 <= low < mid < high <= 2600:
             raise ValueError("Invalid pulse calibration")
         expected = (
-            (180, 270) if name == "tilt" else ((180,) if name == "roll" else (270,))
+            (180, 270) if name == "tilt" else ((180,) if name in ("roll", "cam") else (270,))
         )
         if spec["travel"] not in expected or spec["direction"] not in (-1, 1):
             raise ValueError("Invalid travel or direction")
@@ -83,9 +90,9 @@ def pulse_for(name, angle, servos=SERVOS):
     number(angle)
     s = servos[name]
     if name == "cam":
-        if not 0 <= angle <= 270:
-            raise ValueError("Cam must be between 0 and 270 degrees")
-        fraction = angle / 270
+        if not 0 <= angle <= s["travel"]:
+            raise ValueError("Cam angle outside servo travel")
+        fraction = angle / s["travel"]
         if s["direction"] == -1:
             fraction = 1 - fraction
         return s["min_us"] + fraction * (s["max_us"] - s["min_us"])
@@ -103,9 +110,9 @@ class Rig:
     ):
         self.servos = SERVOS if servos is None else servos
         validate(self.servos)
-        if not 125 < RELEASE_A < 135 or not 245 < RELEASE_B < 255:
+        if not CLIFF_A + 10 <= RELEASE_A <= RAMP_B - 5 or not CLIFF_B + 10 <= RELEASE_B <= 170:
             raise ValueError(
-                "Release angles must stay within their model release regions"
+                "Release angles must clear their cliffs by 10 deg, inside the travel"
             )
         self.dry_run = dry_run
         self.calibrated = CALIBRATED if calibrated is None else calibrated
@@ -163,7 +170,7 @@ class Rig:
                 "Confirm physical home/rest and set CALIBRATED after bench checks"
             )
         self.pose = {"pan": 0, "tilt": 0, "roll": 0, "cam": 0}
-        self._cam(120)
+        self._cam(PARK_A)
         for name in ("pan", "tilt", "roll"):
             self._write(name, pulse_for(name, 0, self.servos))
         self.sleep(1)
@@ -175,7 +182,7 @@ class Rig:
     def _cam(self, angle, seconds_per_60=0.15, settle=0.2):
         self._ready()
         number(angle)
-        if 125 < angle < RELEASE_A or 245 < angle < RELEASE_B:
+        if CLIFF_A - 2 < angle < RELEASE_A or CLIFF_B - 2 < angle < RELEASE_B:
             raise ValueError("Do not hold at a cam release corner")
         pulse = pulse_for("cam", angle, self.servos)
         old = self.pose["cam"]
@@ -186,8 +193,12 @@ class Rig:
 
     def park(self):
         self._ready()
-        if self.pose["cam"] not in (120, 240):
-            self._cam(120)  # Reverse from either release; no tap on reverse.
+        if self.pose["cam"] != PARK_A:
+            # Turning back folds the pawl over the cliffs and lowers the hammer (no tap), so
+            # always go back to rest and forward onto lobe 1.
+            if self.pose["cam"] > PARK_A:
+                self._cam(0)
+            self._cam(PARK_A)
 
     def move(self, name, angle, duration=1.0):
         self._ready()
@@ -232,23 +243,28 @@ class Rig:
 
     def rearm(self):
         self.rest()
-        self._cam(120)
+        self._cam(PARK_A)
 
     def tap(self, double=False, gap=0.0):
+        """From rest: park on lobe 1, then a single tap (on to RELEASE_A) or a double tap (one
+        full-speed move on to RELEASE_B: ~78 deg between drops, ~0.21-0.26 s at no-load speed).
+        gap adds seconds between the taps, by easing over lobe 2 to its dwell first."""
         if number(gap) < 0:
             raise ValueError("Extra tap gap cannot be negative")
         self.rearm()
-        self._cam(RELEASE_A, seconds_per_60=0.1, settle=0 if double else 0.2)
-        if double:
-            # Traverse the ramp monotonically; never hold in a release corner.
+        if not double:
+            self._cam(RELEASE_A, seconds_per_60=0.1)
+            return
+        if gap:
+            self._cam(RELEASE_A, seconds_per_60=0.1, settle=0)
+            # Traverse lobe 2 monotonically to its dwell; never hold in a release corner.
             steps = max(1, int(gap * 50))
             for i in range(1, steps + 1):
-                angle = RELEASE_A + (244 - RELEASE_A) * i / steps
+                angle = RELEASE_A + (PARK_B - RELEASE_A) * i / steps
                 self._write("cam", pulse_for("cam", angle, self.servos))
                 self.sleep(gap / steps)
                 self.pose["cam"] = angle
-            self.sleep((244 - RELEASE_A) / 60 * 0.1)
-            self._cam(RELEASE_B, seconds_per_60=0.1)
+        self._cam(RELEASE_B, seconds_per_60=0.1)
 
     def off(self):
         """Remove holding torque: support the mechanism first."""

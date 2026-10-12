@@ -65,7 +65,7 @@ def run(confirmed=False, dry_run=True):
     for name in ("cam", "pan", "tilt", "roll"):
         rig._write(name, pulse_for(name, 0))
     rig.sleep(1)
-    print("PARK_CAM_120")
+    print("PARK_CAM_LOBE1")
     rig.start_home_rest(confirmed=True)
     for name, positions in (
         ("pan", (135, -135, 0)),

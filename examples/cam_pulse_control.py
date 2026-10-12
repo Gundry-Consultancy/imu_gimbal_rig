@@ -5,8 +5,13 @@ CircuitPython REPL (or Blinka with BLINKA_U2IF=1 before importing board):
     cam.sweep()  # Preview, no hardware access.
     cam.sweep(execute=True, confirmed=True, cycles=2)
 
-Physical rest: 500 us. Upper endpoint estimated at 2650--2670 us; default
-2650 avoids treating the exploratory 2700 us command as a measured limit.
+Physical rest: 500 us (confirmed on the old cam servo, 11-12 October; kept for the MG995).
+The old MG90S-size servo's upper endpoint was estimated at 2650--2670 us. Its MG995
+replacement (2026-10-12) is limited to its nominal 500--2500 us until measured, and the
+default sweep goes to the double-tap end (model 165 deg), not the endpoint.
+
+MG995 cam pulses from the model (us = 500 + angle * 2000 / 180, uncalibrated):
+    rest 0 deg = 500, park 69 = 1267, single tap 87 = 1467, double tap 165 = 2333.
 """
 
 import math
@@ -15,9 +20,20 @@ import time
 from gimbal_servos import ADDRESS, REFERENCE_CLOCK
 
 REST_US = 500
-RESET_ESTIMATE_US = (2650, 2670)
-DEFAULT_UPPER_US = RESET_ESTIMATE_US[0]
-MAX_TESTED_US = 2700
+OLD_SERVO_RESET_ESTIMATE_US = (2650, 2670)  # the replaced MG90S-size servo; not the MG995
+US_PER_DEG = 2000 / 180  # MG995 nominal: 180 deg over 500-2500 us (measure)
+
+
+def cam_us(angle):
+    """Model cam angle (deg from rest) -> MG995 pulse, nominal mapping."""
+    return round(REST_US + angle * US_PER_DEG)
+
+
+PARK_A_US = cam_us(69)  # 1267: lobe 1 dwell, hammer parked
+RELEASE_A_US = cam_us(87)  # 1467: single tap
+RELEASE_B_US = cam_us(165)  # 2333: double tap end
+DEFAULT_UPPER_US = RELEASE_B_US
+MAX_TESTED_US = 2500  # MG995 nominal end; raise only after measuring this servo
 SPEED_US_PER_SECOND = 200
 
 
@@ -25,7 +41,7 @@ def validate_target(target):
     if not isinstance(target, (int, float)) or not math.isfinite(target):
         raise ValueError("Pulse must be a finite number in microseconds")
     if not REST_US <= target <= MAX_TESTED_US:
-        raise ValueError("Bench controller allows 500--2700 us only")
+        raise ValueError("Bench controller allows 500--2500 us only (MG995 nominal)")
 
 
 class CamPulse:

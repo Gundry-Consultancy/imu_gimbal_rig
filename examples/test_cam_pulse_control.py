@@ -67,7 +67,7 @@ class PulseTests(unittest.TestCase):
         self.assertEqual(controller.current, 500)
         self.assertTrue(all(write[0] == 10 for write in self.bus.writes))
         counts = [write[3] | (write[4] << 8) for write in self.bus.writes]
-        self.assertEqual(max(counts), 543)  # Default 2650 us, not 2700.
+        self.assertEqual(max(counts), 478)  # Default: the MG995 double-tap end, 2333 us.
         self.assertEqual(counts[-1], 102)
         self.assertEqual(
             other, {k: v for k, v in self.bus.reg.items() if k not in range(10, 14)}
@@ -76,7 +76,7 @@ class PulseTests(unittest.TestCase):
 
     def test_bad_target_never_writes(self):
         controller = cam.CamPulse()
-        for target in (499, 2701, math.nan, math.inf):
+        for target in (499, 2501, 2650, math.nan, math.inf):
             with self.assertRaises(ValueError):
                 controller.move_us(target)
         self.assertEqual(self.bus.writes, [])
@@ -100,7 +100,7 @@ class PulseTests(unittest.TestCase):
         controller = cam.CamPulse()
         self.bus.reg[0] &= ~0x20
         with self.assertRaises(RuntimeError):
-            controller.move_us(2650)
+            controller.move_us(2333)
         self.assertEqual(self.bus.writes, [])
         self.assertFalse(self.bus.locked)
 
