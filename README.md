@@ -20,9 +20,10 @@ and one FeatherWing.
   hang off it on central standoffs in line with the roof, not at the edges.
 - STEMMA QT sized breakouts, 4 across, plus a Feather-sized place for one
   FeatherWing.
-- Hobby servos: MG90S (roll, and an MG90S-size 270° servo for the striker
-  cam) and DS3240MG (tilt and pan). Both are measured; see
-  `docs/servo-measurements.png`.
+- Hobby servos: MG90S (roll), DS3240MG (tilt and pan) and an MG995 (the
+  striker cam, since 2026-10-12). The MG90S and DS3240 are measured; see
+  `docs/servo-measurements.png`. The MG995 uses datasheet values until it is
+  measured (see [MG995 cam drive](#mg995-cam-drive-2026-10-12)).
 - Aim for ±180° on every axis. In practice the servo travel limits it.
 - Sensors do not need to sit on the rotation centre. Off-axis
   acceleration is accepted.
@@ -65,19 +66,25 @@ hairpin bar hovered just above the roof and limited tilt to ±55°. Now a rigid
 hammer arm pivots on top of a tower on the pan yoke. When parked, it swings
 up and well clear of the whole tilt sweep.
 
+**Cam drive remodelled 2026-10-12 for an MG995** (see
+[MG995 cam drive](#mg995-cam-drive-2026-10-12) below). On the bench the
+MG90S-size cam servo stalled under the spring load.
+
 ![striker section](docs/striker-section.png)
 
-![striker changes](docs/striker-redesign-changes.png)
+![MG995 changes](docs/striker-mg995-changes.png)
 
 **Parts:**
 - **Tower** (`striker_stand`): bolts to the yoke's idler upright with the
   same 4 x M3 as before. Everything on it stays behind the ring band
-  (y < −62 mm), so nothing on it can meet the ring when it tilts.
+  (y < −62 mm), so nothing on it can meet the ring when it tilts. The MG995
+  sits on its **+X wall**.
 - **Hammer arm** (`striker_arm`): pivots on an M3 x 50 bolt, through a printed
-  bushing and two spacers, about 66 mm above the roof.
+  bushing and two spacers, about 66 mm above the roof. At rest its tail leans
+  back 28°.
 - **Drive leaf** (`striker_spring`): a PETG strip standing on a seat at the
   bottom of the tower. Its tip fork is pinned (M3) to the arm's tail.
-- **Cam:** the 270° servo's two-lobe cam bends the drive leaf through a
+- **Cam:** the MG995's two-lobe cam bends the drive leaf through a
   folding pawl.
 
 **How it works:**
@@ -95,42 +102,117 @@ up and well clear of the whole tilt sweep.
   through the 5 mm gap to the roof (**2.0 N** of leaf force at
   contact). Then it springs back onto the screw. The preload keeps it from
   bouncing back into the roof for a second tap.
-- **Energy:** the drop releases **54.7 mJ** in all.
+- **Energy:** the arm reaches its stop with **54.7 mJ** in all.
   - **36 mJ** is the head's share. That's what the tap carries
     (**27.5 mJ** is left at the roof after the leaf work).
   - The arm's **18.7 mJ** goes into the tower's rest stop, not the
     sensor stack.
+  - The drive pin's slot friction takes **6.3 mJ** on the way down (μ 0.4).
+    The leaf is sized to make up for it.
 - **Let-off margin:** the head could travel **15.5 mm** past the arm
   stop if the roof weren't there. That's ≥ 3 x the 5 mm gap, so the tap
   always lands.
-- **Pawl:** pinned with 1.75 mm filament. It points at the cam centre and
-  leans 16° past the cam's force line onto a stop under it. The cam's push,
-  its forward drag and gravity all hold it there. On the reverse stroke the
-  cliffs fold it up and back, and gravity drops it back.
-- **Two lobes in the 270° travel.** Forward is −X rotation (seen from +X,
-  the cam turns clockwise). If your servo runs the other way, flip the
-  angles in software.
+- **Pawl:** pinned with 1.75 mm filament, 17 mm long. It points at the cam
+  centre and leans 16° past the cam's force line onto a stop under it. The
+  cam's push, its forward drag and gravity all hold it there. With friction
+  and the pressure angle, the force line stays at least 4.2 mm on the stop
+  side of its pin. On the reverse stroke the cliffs fold it up and back, and
+  gravity drops it back.
+- **Two lobes in the MG995's ~180°.** Rest is 0° = 500 µs, the low-pulse end.
+  Forward is increasing pulse, which turns the cam anticlockwise seen from the
+  MG995's gear face (−X rotation, as the bench showed).
 
-  | Action | Servo |
-  |---|---|
-  | rest, hammer hovering | 0° |
-  | park for a double tap | ~120° |
-  | park for a single tap | ~240° |
-  | double tap | sweep forward through 125° and 245° (about 0.2 s apart at full MG90S speed) |
-  | single tap | from 240°, step past 245° |
-  | re-arm | back to 0°, then forward to a park angle |
+  | Action | Cam | Pulse (nominal) |
+  |---|---|---|
+  | rest, hammer hovering | 0° | 500 µs |
+  | park (gimbal moves, taps start here) | 69° | 1267 µs |
+  | single tap | from 69°, on to **87°** (the pawl leaves cliff 1 at ~75°) | 1467 µs |
+  | double tap | from 69°, on to **165°** in one move: drops at ~75° and ~153°, **~0.21–0.26 s apart** | 2333 µs |
+  | re-arm | back to 0°, then forward to 69° | |
 
-  **Keep the hammer parked whenever the gimbal moves.**
+  **Keep the hammer parked whenever the gimbal moves.** See
+  [docs/servo_control.md](docs/servo_control.md) for the procedures and the
+  calibration.
 
 **Computed for E = 2 GPa** (spring models in `leaf_design()` and
 `head_leaf_design()`):
 
 | | |
 |---|---|
-| drive leaf | 20 x 2.01 x 68 mm. 1.69 N at rest, 5.13 N parked at the pin; 1.3 % peak strain parked. The seat leans back 5.57° so a straight print is preloaded |
+| drive leaf | 20 x 2.16 x 68 mm. 1.27 N at rest, 5.85 N at the pin at the cliff; 1.3 % peak strain parked. The seat leans back 3.34° so a straight print is preloaded |
 | head leaf | 12 x 1.36 x 50 mm, k = 0.12 N/mm, preloaded 11.7 mm by the stop screw; 1.36 % strain at contact |
-| arm | 20.2 g; the head is 0.66 of its moment of inertia |
-| cam | lift 5.72 mm (r 8 → 13.7). 14.5 N on the pawl when parked (the old bar: 14 N); servo torque ≤ 0.48 kg·cm |
+| arm | 20.3 g; the head is 0.66 of its moment of inertia |
+| cam | two lobes, r 12 → 18.9 (lift 6.87 mm), 12.1 N across the leaf when parked; peak servo torque **1.53 kg·cm** with friction |
+
+### MG995 cam drive (2026-10-12)
+
+**Why it changed.** The [bench test](docs/servo_bench_2026-10-11.md) stalled the
+MG90S-size cam servo under the spring load. It only released with a hand
+helping, and it turned the opposite way to the model.
+[`striker_torque.py`](striker_torque.py) now works out the servo torque with:
+- friction (μ 0.4, PETG on PETG) at the pawl on the cam and at the drive pin
+  in its slot
+- the pressure angle
+- the pawl's lean
+
+The old cam needed **1.46 kg·cm** at its peak. That is **81 %** of an MG90S's
+1.8 kg·cm stall at 4.8 V. Without friction the same cam needs 0.72 kg·cm at
+its peak (the old README's 0.48 was the average over the ramp). A hobby
+servo's torque near its target is only a fraction of stall, so it was
+expected to stall under load. The binding from the defect below came on top
+of that.
+
+![torque](docs/striker-torque.png)
+
+| Cam (forward stroke) | Peak torque, μ 0.4 | Frictionless | Peak pressure angle | Peak contact load | Share of stall (4.8 V) |
+|---|---|---|---|---|---|
+| MG995, this design (2 lobes, r 12) | **1.53 kg·cm** at 61.5° | 1.02 kg·cm | 36° | 14.7 N | **18 %** of 8.5 kg·cm (budget: ≤ 2.83, 1/3) |
+| MG90S-size, edfadd7 (2 lobes, r 8) | 1.46 kg·cm at 113.5° | 0.72 kg·cm | 23° | 25.5 N | **81 %** of 1.8 kg·cm |
+
+**What changed:**
+- **MG995 on the tower's +X wall, gear face toward −X.** The bench saw
+  increasing pulse turn the cam anticlockwise seen from the gear face. From
+  this side that is the model's forward direction (−X), so the pawl, its lean
+  and its stop all work as before. Rest is at 500 µs.
+  - **Mount:** `servo_plate()` with the DS3240's conventions: an 8 mm wire
+    notch to the tab end, slotted holes, 0.4 mm clearance, lead-ins and 45°
+    bosses. The tabs sit in a 1.4 mm pocket in the wall's inner face, and the
+    body is cleared out of the leaf seat.
+  - **Fitting:** the servo goes in from inside the tower. Its spline end tips
+    out through the −X wall's window while the body goes in.
+- **Cam:** two lobes, `(15, 65, 73)` and `(97, 147, 151)`, with base radius
+  12 mm (was 8). That keeps the pressure angle at or under 36°.
+  - **Lobe spacing:** lobe 2's ramp starts 22° after cliff 1. The arm takes
+    ~60 ms to fall, so tap 1 lands (cam ~88–92° at full speed) before lobe 2
+    reaches the pawl.
+  - **Top margin:** the double-tap end, 165°, is 15° short of the MG995's 180°.
+  - **Release margin:** each release command is 11.8° past where the pawl has
+    rolled right off the cliff's corner (75.2° and 153.2° in the model).
+  - **Alternatives:** one lobe needed only 1.02 kg·cm, but a double tap would
+    then take a re-arm, ~1 s. Two lobes on the old 8 mm base circle reached
+    a 50° pressure angle.
+- **Pawl follower moved up the leaf** (40 → 48 mm from the root), which
+  halves the cam load for the same energy. The pawl is 17 mm long (was 14),
+  which keeps the bigger cam 2.24 mm off the leaf through its whole travel.
+
+**The drive pin and its slot (a model defect, fixed).**
+- **The defect:** the old model put the leaf's tip at the pin's *height*. When
+  parked, the slot then ran up to **1.8 mm** off the pin (0.2 mm clearance),
+  with the pin 6.8 mm up the slot. The real leaf must bend to keep the pin in
+  its slot, so the parked pawl wasn't where the cam had been cut for, and the
+  pin bound in the slot.
+- **The fix:** `DriveLeaf.pose()` now solves the leaf's shape with the pin on
+  the slot's centreline at every arm angle, with the pin's load (and its
+  moment on the rigid tip block) included.
+- **Check:** over 25 sampled poses from rest to parked, lifting and falling,
+  the M3 pin (3.0 mm) against the leaf overlaps **0.000 mm³**. Its offset from
+  the centreline is **0.000 mm** (0.2 mm clearance each side), and it runs
+  −1.94…+0.23 mm along a slot whose end centres are at −3.0 / +1.5.
+- **Slot friction:** with the tail straight down, the pin slid 7 mm up the slot
+  under the full leaf force and lost **~23 mJ** of the drop to friction.
+- **Tail lean:** the tail now leans back **28°** at rest. Its pin swings either
+  side of straight down, so it only dips ~2 mm along the slot, and friction
+  takes **6.3 mJ**. The rest stops lean with the tail.
 
 **Clearance** (`striker_limits()` in `make_gimbal.py`: `distToShape`
 against everything that moves, 5° steps). Each limit is ≥ 5 mm.
@@ -142,18 +224,16 @@ against everything that moves, 5° steps). Each limit is ≥ 5 mm.
 
 The ring's −Y axle stub is left out of these checks. It only spins inside the yoke's bearing, and its 4.5 mm to the tower's axle-screw pocket is set by the yoke (unchanged).
 
-**At rest, apart from the roof** (main and `tall_top` alike), the nearest
-moving part to each striker piece is:
-- head: a top-deck QT board, 17.0 mm
-- head leaf: 42.0 mm
-- arm: 47.6 mm
-
-The rest of the striker is at least 7.9 mm from anything that moves.
+**At rest, apart from the roof** (as before), the nearest moving part to the
+head is a top-deck QT board at 17.0 mm. The MG995 is 6.1 mm from the leaf,
+8.8 mm from the pawl and 4.5 mm from the cam (the stock-horn version). The
+spline cam sits on its spline.
 
 **Tuning:**
 - The tap energy, contact force, gap and let-off margin are `TAP_ENERGY`,
   `F_CONTACT`, `HOVER` and `OVERSHOOT_MIN` at the top of `make_striker.py`.
-  The leaves are re-solved from those values.
+  The leaves are re-solved from those values. The friction coefficients are
+  `MU_PIN` and `MU_CAM`; the leaf makes up for the slot friction on the drop.
 - On the bench, the stop-screw nuts trim the head preload. A thin shim on
   the rest-stop lip trims the hover gap.
 - **Creep:** PETG relaxes under constant load. The drive leaf only carries
@@ -180,17 +260,20 @@ against the roll and tilt ranges, and reports any collision.
 | `tilt_ring_mg90s` | roll servo + 623 bearing | MG90S (measured) | DS3240 horn on the +Y bar, M3 axle on -Y |
 | `pan_yoke` | tilt servo + 623 bearing, outer gussets, striker stand pilots | DS3240MG on +Y | pan horn pocket underneath |
 | `base` | pan servo | DS3240MG (270° version for ±135°) | open +X end for cables, 4 x M3 bench holes |
-| `striker_*` | tower (stand), hammer arm, drive leaf, pawl, cam, pivot bushing + spacers | MG90S-size 270° servo | M3 pivot on a printed bushing |
+| `striker_*` | tower (stand), hammer arm, drive leaf, pawl, cam, pivot bushing + spacers | MG995 (~180°) on the tower's +X wall | M3 pivot on a printed bushing |
 
 **Servo mounts:** each mount sets its height from G (tab top to spline top),
-taken as you measured it: MG90S 12.0, DS3240 14.0. If a servo sits a little
+taken as you measured it: MG90S 12.0, DS3240 14.0 (MG995 12.1 from its
+datasheet: measure it). If a servo sits a little
 low, put a washer under its tabs. Every mount has a wire notch at the spline
 end, 0.4 mm clearance, lead-in chamfers on both faces and bosses round the
 screw pilots; see [Fit fixes](#fit-fixes-after-the-first-test-print).
 
-The overall envelope is about 137 x 226 x 249 mm with the striker at rest
-(about 300 mm tall with the hammer parked), and the printed parts weigh
-about 376 g solid (305 g with the old striker, 349 g before the fit fixes).
+The overall envelope is about 137 x 244 x 249 mm with the striker at rest
+(about 300 mm tall with the hammer parked; the MG995 tower is 18 mm longer
+toward −Y). The printed parts weigh about 400 g solid. That was 376 g with
+the MG90S cam drive, 305 g with the old striker, and 349 g before the fit
+fixes. The tower alone grew from 67 to 85 cm³ for the MG995 plate.
 
 ### Fixings
 
@@ -221,9 +304,9 @@ soft-iron error.
 | | M3 x 20 | 1 | drive pin: through the drive leaf's fork slots, self-tapped into the arm's tail (2.8 mm pilot). Leave the head ~0.3 mm off the fork so the pin slides |
 | | M3 x 16 | 4 | drive leaf root pad to the seat (self-tap into the 2.8 mm pilots) |
 | | **M3 x 30 nylon** + 2 nylon M3 nuts | 1 | head stop screw: down through the overarm, one nut under the boss and one on top. The lower nut sets how far the screw presses the head leaf (11.7 mm preload). **Nylon:** it hangs right over the top deck |
-| | MG90S-size 270° servo tab screws: supplied, or 2 x M2 x 8 self-tap | 2 | the tower's −X wall (servo plate) |
-| | `striker_cam`: supplied centre screw, horn trimmed to 14 mm and **CA-glued** into the cam | 1 | the cam has no arm pilots |
-| | `striker_cam_spline` instead: M2 x 10 centre screw | 1 | counterbored from the cam's front face |
+| | MG995 tab screws: supplied, or 4 x M2.6/M3 x 12 self-tap | 4 | the tower's +X wall (2.4 mm pilots, 12.8 mm deep in the bosses), driven from inside the tower |
+| | `striker_cam`: MG995 centre screw (M3, supplied), horn trimmed to 18 mm and **CA-glued** into the cam | 1 | the cam has no arm pilots |
+| | `striker_cam_spline` instead: M3 x 12 centre screw | 1 | counterbored from the cam's −X face |
 | | 1.75 mm filament, ~12 mm | 1 | pawl pin; melt or flare the ends |
 | **Printed horns** (if used) | MG90S: M2 x 8 centre screw; DS3240: M3 x 10 centre screw | per horn | longer than stock, because the printed hub is thicker |
 
@@ -251,10 +334,11 @@ soft-iron error.
   - 10 mm F-F standoffs: 4
 - **M2:**
   - M2 x 6 self-tap: 2 (MG90S horn arms)
-  - M2 x 8 self-tap: 4 (MG90S tabs, if not supplied)
-  - M3 x 12 self-tap: 8 (DS3240 tabs, if not supplied)
-- **Servo-supplied:** the horn centre screws and tab screws for 2 x MG90S and
-  2 x DS3240.
+  - M2 x 8 self-tap: 2 (MG90S tabs, if not supplied)
+  - M3 x 12 self-tap: 12 (DS3240 and MG995 tabs, if not supplied)
+  - M3 x 12 (or x 8 with the stock horn): 1 (MG995 cam centre screw, if not supplied)
+- **Servo-supplied:** the horn centre screws and tab screws for the MG90S,
+  2 x DS3240 and the MG995.
 - **Other:** 2 x 623ZZ bearings and a little 1.75 mm filament.
 
 **Horns: two options, one set of parts.** Every horn pocket works either way.
@@ -276,9 +360,9 @@ soft-iron error.
    - **Fit tuning:** `SPLINE_CLEAR` in `make_gimbal.py` (0.1 mm radial)
      loosens or tightens the spline.
 
-**The striker cam** has both versions too: `striker_cam` takes a stock horn
-trimmed to 14 mm, and `striker_cam_spline` has the 21T socket moulded in
-(M2 screw from the front, counterbored).
+**The striker cam** has both versions too: `striker_cam` takes a stock MG995
+horn trimmed to 18 mm, and `striker_cam_spline` has the 25T socket moulded in
+(M3 screw from the −X face, counterbored).
 
 **Fitting a horn, either way:** screw the horn to the part, press it onto the
 spline, then drive the centre screw through the part's access hole.
@@ -314,9 +398,9 @@ plate thickness.
 | Plate | Servo | Notch | Pilots opened into the notch |
 |---|---|---|---|
 | `tilt_ring_mg90s` (roll) | MG90S | 6.0 mm wide, 1.1 mm past the cut-out (1.5 mm past the body end) | the one spline-end pilot (it's on the centreline) |
-| `striker_stand` (cam) | MG90S | same | same |
 | `pan_yoke` (tilt) | DS3240 | 8.0 mm wide, out to the tab end (7 mm past the body) | both spline-end pilots, inner side |
 | `base` (pan) | DS3240 | same | same |
+| `striker_stand` (cam) | MG995 | 8.0 mm wide, out to the tab end | both spline-end pilots, inner side (~108°) |
 
 The MG90S notch is short because the spline-end screw sits on the centreline,
 only ~1 mm past the body. If the cable still catches, there are two options:
@@ -332,7 +416,7 @@ cable end) lines up with the notch.
 | roll MG90S | tilt ring, +X plate | inside the ring (the tab face), bottom first | the outer face also works (chamfered) |
 | tilt DS3240 | yoke, +Y upright | the inner face (toward the ring), bottom first | tab face only |
 | pan DS3240 | base, top plate | from above, bottom first | tab face only |
-| cam MG90S | striker tower, −X wall | from inside the tower (the tab face), bottom first, before the leaf and cam go in; spline end (cable) up | the other face also works (chamfered) |
+| cam MG995 | striker tower, +X wall | from inside the tower (the tab face), bottom first, before the leaf and cam go in; spline end (cable) up. The spline end tips out through the −X wall's window while the body goes in | tab face only (the tabs sit in a 1.4 mm pocket) |
 
 **Volume**, for the parts that were lightened or thickened:
 
@@ -378,14 +462,14 @@ the taps well. **The striker arm and drive leaf must be PETG.**
 | `tilt_ring_mg90s` | 1 | 0.6 | flat | **still needs supports** under the side bars and bearing plate (they sit ~10–15 mm up; it's a closed frame). Windows, bosses and pocket roofs are all 45°. Drill the 1.7 mm servo pilots |
 | `pan_yoke` | 1 | 0.6 | on its side (32 mm face down) | the U profile lies flat, so no supports; windows have 45° tops (either side down); ream the 623 pocket if tight |
 | `base` | 1 | 0.6 | on its closed end wall | open box, no supports; windows have 45° tops |
-| `striker_stand` | 1 | 0.6 | **upright, floor down** (as it sits on the yoke) | the tower: walls stand vertical, the pivot bosses are downward teardrops and the rest stops have 45° undersides, so no supports. Windows have 45° tops. Drill the small pilots |
-| `striker_arm` | 1 | 0.4 preferred | **on its side** (the 12 mm thick profile flat) | **PETG**, 100 % infill. The head leaf is 1.36 mm thick (its stiffness goes as thickness cubed; the stop screw trims the preload) |
-| `striker_spring` | 1 | 0.4 preferred | **flat on its plain (+Y) face**, lugs and fork up | **PETG**, 100 % infill. The drive leaf: its 2.01 mm thickness sets the drive force (thickness cubed) |
+| `striker_stand` | 1 | 0.6 | **upright, floor down** (as it sits on the yoke) | **Reprint (2026-10-12):** the MG995 plate is on the +X wall now. The tower: walls stand vertical, the pivot bosses are downward teardrops and the rest stops have 45°+ undersides, so no supports. Windows have 45° tops. Drill the small pilots |
+| `striker_arm` | 1 | 0.4 preferred | **on its side** (the 12 mm thick profile flat) | **Reprint (2026-10-12):** the tail leans back 28°. **PETG**, 100 % infill. The head leaf is 1.36 mm thick (its stiffness goes as thickness cubed; the stop screw trims the preload) |
+| `striker_spring` | 1 | 0.4 preferred | **flat on its plain (+Y) face**, lugs and fork up | **Reprint (2026-10-12):** 2.16 mm thick, lugs 48 mm up, short slot. **PETG**, 100 % infill. The drive leaf: its thickness sets the drive force (thickness cubed) |
 | `striker_bushing` | 1 | 0.4 | standing on end | 6 mm tube for the M3 pivot bolt |
 | `striker_spacer` | 2 | 0.4 | standing on end | either side of the arm's hub |
-| `striker_pawl` | 1 | **0.4 needed** | flat on a 4.4 mm face | 1.9 mm pin hole must swing freely; pin is 1.75 mm filament. **Reprint it:** it is 14 mm long now (was 9) |
-| `striker_cam` | 1 | 0.4 preferred | flat, **horn pocket up** | takes a stock horn trimmed to 14 mm; a crisp cliff edge gives a clean drop |
-| `striker_cam_spline` | (alt.) | **0.4 needed** | counterbored face down, hub up | 21T socket moulded in; use instead of `striker_cam` |
+| `striker_pawl` | 1 | **0.4 needed** | flat on a 4.4 mm face | **Reprint (2026-10-12):** 17 mm long (was 14). 1.9 mm pin hole must swing freely; pin is 1.75 mm filament |
+| `striker_cam` | 1 | 0.4 preferred | flat, **horn pocket up** | **Reprint (2026-10-12):** two lobes, r 12 → 18.9. Takes a stock MG995 horn trimmed to 18 mm; a crisp cliff edge gives a clean drop |
+| `striker_cam_spline` | (alt.) | **0.4 needed** | counterbored face down, hub up | **Reprint (2026-10-12):** 25T (MG995) socket moulded in; use instead of `striker_cam` |
 | `horn_mg90s_printed` | 0–1 | **0.4 needed** (0.25 better) | arm down, socket up | 0.3 mm deep spline teeth; only if the stock roll horn doesn't fit |
 | `horn_ds3240_printed` | 0–2 | **0.4 needed** | arm down, socket up | only if the stock tilt/pan horns don't fit |
 
@@ -455,17 +539,20 @@ spline, then drive the centre screw through the part's access hole.
      plus head. It's easier to tilt the ring 90° and put them in from the
      side. For `tall_top` (M3 x 55) you have to do it that way. Slide the
      washers and nuts in under the roof edge onto the top deck's bosses.
-8. **Striker** (the tower goes on the yoke before the leaf goes in):
-   - Put the cam MG90S into the tower's −X wall from inside, bottom first,
-     spline end (cable) up. Fit its 2 tab screws.
+8. **Striker** (the tower goes on the yoke before the servo and the leaf go in):
    - Bolt the tower to the yoke's -Y upright (4 x M3 x 14, reached through
      the holes in the leaf seat). This covers the tilt axle screw, so that
-     goes in first. Do it before the drive leaf: the leaf's root pad covers
-     the upper two access holes.
+     goes in first. Do it before the MG995 (its body covers the +X upper
+     bolt's hex-key path) and before the drive leaf (the leaf's root pad
+     covers the upper two access holes).
+   - Put the cam MG995 into the tower's +X wall from inside, bottom first,
+     spline end (cable) up. Tip its spline end out through the −X wall's
+     window while the body goes into the +X wall. Fit its 4 tab screws with
+     the driver through the −X wall's 7.2 mm access holes.
    - On the bench, pin the pawl to the drive leaf's lugs with filament. It
      should swing freely and fall back onto its stop.
    - On the bench, bend the leaf's fork onto the arm's tail (the leaf leans
-     back about 5.5° when free). Drive the M3 x 20 pin through one fork slot,
+     back about 3.3° when free). Drive the M3 x 20 pin through one fork slot,
      self-tap it through the tail and out through the other slot. Leave the
      head ~0.3 mm clear, so the pin can slide. Do this before the arm goes
      between the walls: there the fork has only 10 mm beside it for a 20 mm
@@ -479,22 +566,25 @@ spline, then drive the centre screw through the part's access hole.
      its pocket. Tighten until snug. The arm should swing freely.
    - Screw the drive leaf's root pad to the seat (4 x M3 x 16), lugs and
      pawl toward the servo.
-   - Fit the cam with the servo at 0°: the pawl tip just clears the base
-     circle, 45° up from the cam's +Y side.
+   - Command the cam servo to 500 µs (rest). Slide the cam in from behind the
+     tower and onto the spline from the −X side. Pick the spline tooth that
+     puts the pawl tip just clear of the base circle, 45° up from the cam's +Y
+     side, ahead of lobe 1. Then fit the centre screw through the −X wall's
+     window.
    - Check the hover gap: the head's face should sit 5 mm above the roof. To
      trim it, shim the rest-stop lip, where the tail lands.
 
 The animated assembly (below) follows this order. Its access check found
-the four changes from the earlier order: the ring goes into the yoke empty,
+the changes from the earlier order: the ring goes into the yoke empty,
 the stack is finished in place, the stack bolts go in from below, and the
-tower goes on before the leaf.
+tower goes on before the leaf and (since the MG995) before the cam servo.
 
 ## Assembly animation
 
 ![assembly animation](docs/assembly/assembly-animation.gif)
 
 `docs/assembly/imu-gimbal-assembly-animated.FCStd` is the whole rig with
-every fixing modelled: 119 fixings among 153 objects, in 25 steps, following
+every fixing modelled: 121 fixings among 155 objects, in 25 steps, following
 the assembly order above. The fixing count includes the optional bench
 screws, the 9 PR 839 boards and the wing.
 
@@ -600,21 +690,21 @@ any parameter change. The stack bolt length is picked from the grip.
 | 15 | Middle deck into the ring (roll spline) | horn centre screw (supplied; M2 x 8 printed) |
 | 16 | Roll idler axle | M3 x 12 button head + washer |
 | 17 | Stack and clamp the decks | 2 x M3 x 50 (up from below) + 2 washers (optional) + 2 nuts |
-| 18 | Cam servo into the striker tower | 2 x M2 x 8 self-tap |
-| 19 | Tower onto the yoke | 4 x M3 x 14 |
+| 18 | Tower onto the yoke | 4 x M3 x 14 |
+| 19 | Cam servo (MG995) into the striker tower | 4 x M3 x 12 self-tap (driver through the −X wall's access holes) |
 | 20 | Pawl onto the drive leaf | 1.75 mm filament pin |
 | 21 | Drive leaf pinned to the arm | M3 x 20 (drive pin) |
 | 22 | Head stop screw | M3 x 30 nylon + 2 nylon nuts |
 | 23 | Arm and leaf into the tower | M3 x 50 + nut (bushing and 2 spacers on it) |
 | 24 | Drive leaf root pad to the seat | 4 x M3 x 16 |
-| 25 | Cam onto the servo | centre screw (supplied), horn CA-glued in the cam |
+| 25 | Cam onto the servo | M3 centre screw (supplied), horn CA-glued in the cam |
 
 **Check results** (main design, 9 boards + wing):
 - **Counts:** match the fixings table, except the M2.5 nuts. The model
   uses 18, not 22: the wing's F-F standoffs take a screw at each end, so
   its 4 "+ nut" are not needed.
-- **Coaxial:** worst 0.10 mm. That's the servo tab pilots, which are short
-  slots.
+- **Coaxial:** worst 0.175 mm. That's the MG995's tab pilots, which are
+  0.7 mm slots.
 - **Seats:** worst gap 0.30 mm, the drive pin's designed clearance.
 - **Shanks:** worst 0.10 mm³ (the stop screw's tip on the head leaf). The
   pan-horn arm screws' self-tapping points reach 0.5 mm past the 5 mm pilots
@@ -670,7 +760,7 @@ above, on the same fixing points and in the same colours.
   | Pan | Revolute | base, yoke | Z through the gimbal centre | ±135° (DS3240, 270°) |
   | Tilt | Revolute | yoke, ring | Y through the centre | none: 360° (striker parked) |
   | Roll | Revolute | ring, stack | X through the centre | ±90° (MG90S) |
-  | Cam | Revolute | tower, cam | −X through the cam centre (+ = forward) | 0–270° |
+  | Cam | Revolute | tower, cam | −X through the cam centre (+ = forward = increasing pulse) | 0–180° (MG995) |
   | Hammer arm pivot | Revolute | tower, arm | +X through the pivot (+ = hammer up) | 0–50° |
   | Pawl pin | Revolute | leaf, pawl | −X through the pin (+ = fold) | 0–120° |
   | Tower | Fixed | yoke, tower | | |
@@ -700,15 +790,16 @@ above, on the same fixing points and in the same colours.
    `.speed = 0.5`, `.stop()`.
 
 **The programme** (38.2 s):
-1. Park the hammer (cam 0 → 120°), then pan 0 → +135 → −135 → 0. The pan
+1. Park the hammer (cam 0 → 69°), then pan 0 → +135 → −135 → 0. The pan
    servo is a 270° DS3240, so ±135° is its whole travel; a full 360° of pan
    isn't possible.
 2. Tilt a full 360° with the hammer parked.
 3. Roll +90 → −90 → 0.
-4. Striker: re-arm (cam back to 0), park (120°), single tap (124 → 134°),
-   re-arm (the cliff folds the pawl), park, double tap (124 → 134°, lobe 2
-   lifts the arm again, 244 → 254°), and back to rest (both cliffs fold the
-   pawl).
+4. Striker: re-arm (cam back to 0), park (69°), single tap (72 → 87°),
+   re-arm (the cliff folds the pawl), park, double tap (72 → 87°, lobe 2
+   lifts the arm again, 150 → 165°), and back to rest (both cliffs fold the
+   pawl). In the video the lift over lobe 2 is slowed down; at full MG995
+   speed the two drops are ~0.21–0.26 s apart.
 
 ![striker cycle](docs/motion/striker-cycle.png)
 
@@ -716,21 +807,24 @@ above, on the same fixing points and in the same colours.
 model):
 - **Cam → arm:** at each cam angle, the arm angle is the smallest one at
   which the pawl clears the cam profile (`cam_radius()` and `LOBES`). The
-  pawl rides on the drive leaf, bent to match that arm angle by the same
-  cantilever model `solve()` uses. The pawl is tested as a capsule (pin to
-  tip, 5 mm wide) against the cam's radius at each point of its outline. So
-  ramps, dwell tops and the roll-off over each cliff's corner come out of
-  the geometry. Parked: 47.98°; cam force 14.5 N; leaf 1.71 N at rest and
-  5.16 N parked at the pin (as the striker section above).
+  pawl rides on the drive leaf, whose shape is solved for that arm angle with
+  the drive pin on its slot's centreline (`DriveLeaf.pose()`, as `solve()`).
+  The pawl is tested as a capsule (pin to tip, 5 mm wide) against the cam's
+  radius at each point of its outline. So ramps, dwell tops and the roll-off
+  over each cliff's corner come out of the geometry. Parked: 48.0°; cam force
+  12.1 N; leaf 1.27 N at rest and 5.85 N at the pin when parked (as the
+  striker section above).
 - **Reverse stroke:** a cam turning backwards can't lift the leaf, so the
   arm never rises. The pawl folds about its pin just enough to clear the
-  cam, up to 51.9° over lobe 1, then drops back.
-- **Release:** the servo steps from 124° to 134° at 600°/s (MG90S no-load
-  speed, assumed). The pawl rolls off the cliff's corner for the first 2.2 ms,
-  then the leaf's force k(d_rest + dy) and gravity throw the arm onto its
-  rest stop. RK4 on the arm's inertia (arm plus the lumped leaf tip, as
-  `solve()`) gives 50.3 ms to the stop, 33.0 rad/s, 55.0 mJ (the design's
-  54.7 mJ).
+  cam, then drops back.
+- **Release:** the servo steps from 72° to 87° (or 150° to 165°) at 375°/s
+  (MG995 no-load speed at 6 V, assumed). The pawl rolls off the cliff's
+  corner for the first 2.5 ms. Then the leaf's push on the pin (solved with
+  the pin on its slot, less the slot friction) and gravity throw the arm onto
+  its rest stop. RK4 on the arm's inertia (arm plus the lumped leaf tip, as
+  `solve()`) gives 51.1 ms to the stop, 33.0 rad/s, 55.0 mJ (the design's
+  54.7 mJ). At full speed the cam is then at ~91°, still short of lobe 2's
+  ramp at 97°.
 - **Let-off:** the head's share, 36.2 mJ (design 36), carries it on against
   the preloaded head leaf (P + kx). It reaches the roof 1.6 ms after the arm
   stops, with 28.0 mJ (design 27.5). It rebounds (coefficient of
@@ -751,7 +845,7 @@ model):
     A real tip-loaded leaf would also tip the head by up to 8.6° (1.5 x 5 mm
     / 50 mm) at the roof.
   - The drop happens in a few tens of milliseconds, so the video and the
-    macro show each release in slow motion (33–39x). The caption gives the
+    macro show each release in slow motion (32–39x). The caption gives the
     physical time.
 
 **Native Simulation limits (FreeCAD 1.1):**
@@ -769,9 +863,9 @@ model):
   | Joint | Worst fit error |
   |---|---|
   | pan, tilt, roll | 0.26° |
-  | cam | 0.39° |
-  | arm | 0.92° |
-  | pawl fold | 15.3° |
+  | cam | 0.25° |
+  | arm | 1.03° |
+  | pawl fold | 21.6° |
 
   The pawl's quick folds over the cliffs get smoothed. For the exact
   motion, use the macro.
@@ -781,33 +875,37 @@ model):
 **Checks** (headless):
 - `make_motion.py` (`verify-joints.json`):
   - Forward-kinematics poses (all six joints at several angles) are kept by
-    the solver to 7.6e-14 mm.
+    the solver to 7.7e-14 mm.
   - Poses wobbled off their joints by up to 1.5° and 0.4 mm are pulled back
     to pure rotations about the right axes through the right points, within
-    6.3e-12 mm.
+    1.3e-11 mm.
   - The four Simulations run headless (242, 242, 182 and 626 frames), and
-    every joint matches its formula to within 5e-8°.
+    every joint matches its formula to within 4e-8°.
 - `check_motion.py` (`check-motion.json`): the macro's dry run over all
   1147 frames (30 fps), plus:
   - **Arm angle:**
-    - The angle shown equals the timeline to 1.3e-11°.
+    - The angle shown equals the timeline to 5.4e-8°.
     - Recomputed from the cam angle by the model at every frame (not from
-      the stored timeline), it agrees to 1.7e-4°.
-    - During the drops it matches a fresh drop simulation to 8.9e-5°.
-    - The pawl fold agrees to 8.8e-4°.
+      the stored timeline), it agrees to 1.2e-4°.
+    - During the drops it matches a fresh drop simulation to 8.5e-5°.
+    - The pawl fold agrees to 9.5e-3°.
     - The pawl is never inside the cam.
   - **Restore:** the document is put back exactly (placements and shapes).
   - **Collisions:** every pair of objects on bodies in relative motion was
-    checked (11,689 pair checks, 4,258 measured) — every 10th frame while
+    checked (11,197 pair checks, 4,237 measured) — every 10th frame while
     the gimbal moves, every 3rd while the cam turns, every 2nd in a release.
     There are no collisions and no unplanned contacts. The closest
     unplanned approach is 0.85 mm: the ring against the yoke upright and
     the middle deck, an axial gap that doesn't change with the angle.
-  - **Designed contacts:** pawl on cam (worst overlap 0.93 mm³, from the
+    The striker's own nearest non-contacts are the cam to the leaf and the
+    cam to an MG995 tab screw, at ≥ 1.1 and ≥ 1.5 mm. Those are bounding-box
+    lower bounds for the faceted cam: the cam sweep in `make_striker` gives
+    2.24 mm to the leaf, and the tab screws are 13.5 mm from the cam.
+  - **Designed contacts:** pawl on cam (worst overlap 1.97 mm³, from the
     sampled pawl outline), arm on its rest stop (touching), and head on
     the roof at the tap. The last two are checked at the exact instants
     of all three taps, not on the frame grid: the arm reaches its stop at
-    50.3 ms and the head reaches the roof at 51.8 ms, each at 0.000 mm
+    51.1 ms and the head reaches the roof at 52.7 ms, each at 0.000 mm
     with 0 mm³ of overlap.
   - **Parked tilt (360°) and roll (±90°), every frame:** the striker keeps
     **7.90 mm** from everything that tilts or rolls (need ≥ 5;
@@ -817,14 +915,10 @@ model):
       passes the ring at 0.85 mm.
     - The tilt axle screw and washer only spin inside the yoke's bearing,
       1.0 mm from the tower's screw-head pocket.
-  - **Drive pin in the leaf's slot: up to 27 mm³ of overlap when parked.**
-    `make_striker.solve()` sizes the leaf so its tip centreline moves
-    with the pin. But the pin rides FORK_T / 2 off that centreline and
-    6.8 mm up the slot, and the tip tilts 11.6° by park. So the leaf shape
-    it solves puts the slot 1.8 mm off the pin at 48° (0.2 mm clearance;
-    0.3 mm off at 24°). The real leaf will bend a little differently
-    (the pin sets the slot), with slightly more force when parked. Worth
-    fixing in `leaf_design()` / `DriveLeaf`.
+  - **Drive pin in the leaf's slot: 0.000 mm³ of overlap in every frame**
+    (closest 0.052 mm, of the 0.2 mm design clearance). Before 2026-10-12 the
+    leaf model let the parked slot run 1.8 mm off the pin (27 mm³ here). Now
+    `DriveLeaf.pose()` solves the leaf with the pin on the slot's centreline.
 
 **Rebuild:**
 
@@ -877,7 +971,9 @@ either way.
 | `swirly_grid.py` | Pure-Python swirly-grid geometry + hole-pattern fit checker (`python swirly_grid.py 2 4`) |
 | `pack_faces.py` | Portrait QT board placement options on a swirly grid |
 | `make_sensor_stack.py` | Sensor stack decks, spines, roof, board layout, reference board envelopes |
-| `make_striker.py` | Striker: drive-leaf and head-leaf spring models, hammer arm (rest / parked / as printed), pawl, cam, tower |
+| `make_striker.py` | Striker: drive-leaf and head-leaf spring models (leaf solved with the pin on its slot), hammer arm (rest / parked / as printed), pawl, cam, tower with the MG995 plate |
+| `striker_torque.py` | Cam-servo torque budget with friction, pressure angle and pawl lean; compares the edfadd7 MG90S cam; `docs/striker-torque.png` |
+| `render_striker_docs.py` | `docs/striker-section.png` and `docs/striker-mg995-changes.png` from the assembly FCStd |
 | `make_gimbal.py` | Full gimbal + striker, per-part STEP/STL in `parts/`, clearance checks, `imu-gimbal-assembly.FCStd`. `geometry()` builds everything without writing, and records every fixing point (`POINTS`) where a hole is cut |
 | `fixings.py` | Simple fixing models (Part API): socket cap / button / pan / self-tap screws, nuts, washers, spacers, F-F and M-F standoffs, 623ZZ, filament pin |
 | `assembly_plan.py` | Assembly steps, every fixing placed on the generators' fixing points, insertion paths |
@@ -915,3 +1011,8 @@ unloaded travel checks, and the planned model sequence. The
 mapping, all angle/pulse commands, axis alignment trims, and load-related
 sticking. Use the slow pulse-based cam controller for the physical rig;
 model-angle motion remains uncalibrated.
+
+The examples now carry the MG995 cam constants: rest 0° = 500 µs, park 69°,
+single tap 87° and double-tap end 165°, with forward = increasing pulse
+(`direction=1`). `CALIBRATED` is still false. Calibrate the MG995 first
+([steps](docs/servo_control.md#calibrating-the-mg995-before-calibrated--true)).

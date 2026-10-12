@@ -6,6 +6,14 @@ are unchanged, since the bottom deck isn't attached to the gimbal.
 
 ![changes](changes-highlighted.png)
 
+**2026-10-12: MG995 cam drive.** The striker's cam servo is now an MG995 on the
+tower's +X wall, with a two-lobe cam, a pawl follower 48 mm up the leaf, a 28°
+lean on the arm's tail, and the drive pin kept on its slot. This applies here
+as in the main design (see the main README,
+[MG995 cam drive](../../README.md#mg995-cam-drive-2026-10-12)). Reprint
+`striker_stand` from here, and `striker_arm`, `striker_spring`, `striker_pawl`
+and `striker_cam` (or `striker_cam_spline`) from either folder.
+
 ## What changed
 
 **Modified parts (print these):**
@@ -27,7 +35,7 @@ design's.
   2026-10-10 fit fixes).
 - The ring and yoke sizes are pinned to the main build (`../../build_info.json`).
 
-**Striker numbers are the same as the main design** (2026-10-10 redesign;
+**Striker numbers are the same as the main design** (2026-10-12 MG995 cam drive;
 see the main README):
 - The head hovers 5 mm above the roof at rest.
 - The arm parks 48° up.

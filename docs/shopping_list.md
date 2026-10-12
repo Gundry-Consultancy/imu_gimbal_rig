@@ -10,8 +10,9 @@ will not.
 
 ## Already have (2026-10-10)
 
-- M2 self-tapping, 6 mm and 8 mm: for the MG90S horn arms and the MG90S /
-  cam-servo tabs
+- M2 self-tapping, 6 mm and 8 mm: for the MG90S horn arms and tabs (the cam
+  servo is an MG995 since 2026-10-12, so its tabs take M3 now)
+- an MG995 servo, for the striker cam (2026-10-12)
 - M2.5 x 8 self-tapping: for the DS3240 horn arms
 - 623ZZ bearings (on order)
 - 1.75 mm filament, for the pawl pin
@@ -83,8 +84,9 @@ screws.
 | 25 | M2.5 x 3 mm spacer | nylon *(non-magnetic)* | 18 | under each QT board |
 | 8 | M2.5 x 10 F-F standoff | nylon *(non-magnetic)* | 4 | FeatherWing (clears the header pins) |
 | 5 | M2 x 8 machine screw | any | 1 | printed MG90S horn centre (into the servo's threaded spline) |
-| 5 | M2 x 10 machine screw | any | 1 | `striker_cam_spline` centre |
-| 1 | CA glue (superglue) | - | - | the trimmed horn into `striker_cam` |
+| 5 | **M3 x 12 self-tap** (or the MG995's own tab screws) | any | 4 | **MG995 cam-servo tabs** (2.4 mm pilots, 12.8 mm deep in the bosses). New with the 2026-10-12 cam drive |
+| (from the M3 kit) | M3 x 12 machine screw | any | 1 | `striker_cam_spline` centre, into the MG995 spline (the stock horn uses the MG995's own M3 screw) |
+| 1 | CA glue (superglue) | - | - | the trimmed MG995 horn (18 mm) into `striker_cam` |
 
 **One kit instead:** the six nylon M2.5 lines are all covered by one
 **M2.5 nylon standoff / screw / nut kit** (the ~300-piece hex kits with
@@ -99,4 +101,5 @@ supplied with the servos for stock horns.
 **Not fixings, but needed to run it:**
 - a TCA9548A I2C mux
 - STEMMA QT cables (one per board, 100–200 mm)
-- the servos: 2 x MG90S (one 270°), 2 x DS3240MG
+- the servos: 1 x MG90S (roll), 2 x DS3240MG (tilt, pan), 1 x MG995 (striker
+  cam; it replaces the MG90S-size 270° cam servo)
