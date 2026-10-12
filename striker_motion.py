@@ -17,7 +17,11 @@ the arm's pivot and lever, the masses and the head-leaf spring):
   coefficient of restitution E_ROOF (assumed) and comes back to rest on the stop screw.
 
 Angles: phi = arm angle above rest (deg, + = about +X, hammer up); theta = cam servo angle
-(deg, forward = -X rotation); alpha = pawl fold (deg, away from its stop).
+(deg from rest, forward = -X rotation = increasing pulse on the MG995, which sits on the +X wall
+facing -X); alpha = pawl fold (deg, away from its stop).
+
+The drive pin stays on its slot's centreline at every arm angle (make_striker.DriveLeaf.pose), and
+the drop loses the slot friction (MU_PIN) on the way down.
 """
 
 import bisect
@@ -42,8 +46,10 @@ def striker_input(points):
 
 
 class Striker:
-    def __init__(self, sg):
-        self.num, st = mk.solve(sg)
+    def __init__(self, sg, state=None):
+        """sg: make_striker's g dict. state: a (num, st) pair to use instead of mk.solve(sg)
+        (striker_torque evaluates the edfadd7 MG90S parts this way)."""
+        self.num, st = state or mk.solve(sg)
         self.st = st
         self.lay, self.leaf, self.K = st["lay"], st["leaf"], st["K"]
         self.b0, self.bp, self.h = st["b0"], st["bp"], st["h"]
@@ -69,37 +75,48 @@ class Striker:
         return self.pin(phi)[0] - self.pin0[0]
 
     def leaf_pts(self, phi):
-        """Leaf stations with the arm at phi: propped by the arm on its stop at 0, otherwise
-        the cam load at the pawl holds the tip at d_rest + dy against the arm's weight (as solve())."""
-        lf = self.leaf
+        """Leaf stations with the arm at phi, the drive pin on its slot's centreline (as solve()):
+        propped by the arm on its stop at 0, otherwise held by the cam load at the pawl."""
         if phi <= 1e-9:
-            return lf.shape(tip_prop=lf.d_rest)
-        cm1 = mk.rot_yz(self.cm, self.P, phi)
-        lever = self.P[1] - self.pin(phi)[1]
-        f_tip = max(0.0, self.m_arm * mk.G * (cm1[0] - self.P[0]) / lever)
-        p_cam = lf.loads_for_tip(lf.d_rest + self.travel(phi), f_tip)
-        return lf.shape(p_cam=p_cam, f_tip=f_tip)
+            return self.leaf.pose(self.pin0)[0]
+        return self.leaf.loaded_pose(self.lay, self.m_arm, self.cm, phi)[0]
+
+    def _lerp(self, col, phi):
+        phi = min(max(phi, 0.0), self.phis[-1])
+        i = min(int(phi / PHI_STEP), len(self.phis) - 2)
+        f = (phi - self.phis[i]) / PHI_STEP
+        return col[i] + (col[i + 1] - col[i]) * f
 
     def leaf_force(self, phi):
-        """Leaf spring force at the pin (N): k (d_rest + dy)."""
-        return self.k_leaf * (self.leaf.d_rest + max(0.0, self.travel(phi)))
+        """The free leaf's push on the pin (N, across the slot) with the arm at phi, cam clear."""
+        return self._lerp(self.f_free, phi)
 
     def cam_force(self, phi):
-        """Cam load on the pawl (N) holding the arm at phi (0 at rest: the stop holds it)."""
+        """Cam load on the leaf at the pawl (N, across the leaf) holding the arm at phi while lifting
+        (0 at rest: the stop holds it)."""
         if phi <= 1e-9:
             return 0.0
-        cm1 = mk.rot_yz(self.cm, self.P, phi)
-        f_tip = max(0.0, self.m_arm * mk.G * (cm1[0] - self.P[0]) / (self.P[1] - self.pin(phi)[1]))
-        return self.leaf.loads_for_tip(self.leaf.d_rest + self.travel(phi), f_tip)
+        return self._lerp(self.p_cam, phi)
 
     def _table(self):
-        """phi -> pawl station (y, z, heading) at FOLLOW_A, on a PHI_STEP grid."""
-        self.phis, self.stations = [], []
+        """phi -> pawl station (y, z, heading) at FOLLOW_A, the cam load, and the free leaf's pin load
+        and slot heading, on a PHI_STEP grid."""
+        self.phis, self.stations, self.p_cam, self.f_free, self.h_free, self.u_pin = [], [], [], [], [], []
         n = int(round(PHI_MAX / PHI_STEP))
         for i in range(n + 1):
             phi = i * PHI_STEP
+            pin = self.pin(phi)
+            free, _, f_t, _ = self.leaf.pose(pin)
+            if i:
+                pts, p, _, u = self.leaf.loaded_pose(self.lay, self.m_arm, self.cm, phi)
+            else:
+                pts, p, u = free, 0.0, self.leaf.pin_uw(free, pin)[0]
             self.phis.append(phi)
-            self.stations.append(mk.station(self.leaf_pts(phi), mk.FOLLOW_A))
+            self.stations.append(mk.station(pts, mk.FOLLOW_A))
+            self.p_cam.append(p)
+            self.f_free.append(f_t)
+            self.h_free.append(free[-1][3])
+            self.u_pin.append(u)
         self.station_rest = self.stations[0]
 
     def station_at(self, phi):
@@ -198,10 +215,11 @@ class Striker:
         return z - x - self.z_roof
 
     # --- dynamics ------------------------------------------------------------------------------
-    def torque(self, phi):
-        """Torque about the pivot (N mm, + = hammer up) from the leaf's push on the pin and gravity."""
-        f = self.leaf_force(phi)
-        t_leaf = -f * mk.TAIL_LEVER * math.cos(math.radians(phi))
+    def torque(self, phi, mu=None):
+        """Torque about the pivot (N mm, + = hammer up) on the falling arm, cam clear: the leaf's
+        push on the pin (with the slot friction against the fall) and gravity."""
+        t_leaf = mk.pin_torque(self.P, self.pin(phi), self.leaf_force(phi), self._lerp(self.h_free, phi),
+                               mk.slide_sense(phi, False), mu)
         cm1 = mk.rot_yz(self.cm, self.P, phi)
         return t_leaf - self.m_arm * mk.G * (cm1[0] - self.P[0])
 
@@ -264,11 +282,13 @@ class Striker:
                 xs.append(x)
         return ts, xs, ev
 
-    def release(self, theta0, theta1, phi0, servo_dps=600.0, dt=5e-5, settle=0.006):
+    def release(self, theta0, theta1, phi0, servo_dps=None, dt=5e-5, settle=0.006):
         """The cam turns on from theta0 to theta1 at servo speed (deg/s) with the arm at phi0 on
         the lobe: the pawl rolls off the cliff's corner (the arm follows the cam while the cam
         holds it up), then falls free onto the rest stop; then the let-off.
         Returns rows (t s, theta, phi, x) and the event numbers."""
+        servo_dps = SERVO_DPS if servo_dps is None else servo_dps
+
         def acc(p):
             return 1000.0 * self.torque(math.degrees(p)) / self.i_tot
         t, p, w = 0.0, math.radians(phi0), 0.0
@@ -318,6 +338,14 @@ def smooth(f):
     return f * f * (3 - 2 * f)
 
 
+# Cam angles (deg from rest, forward), from LOBES: lobe 1 parks the hammer for the gimbal and a single
+# tap; a double tap sweeps on over lobe 2. Releases are commanded past the modelled drop with margin.
+CLIFF_A, CLIFF_B = mk.LOBES[0][2], mk.LOBES[1][2]
+PARK_A = (mk.LOBES[0][1] + mk.LOBES[0][2]) / 2
+RELEASE_A = 87.0       # single tap: the pawl is off cliff A's corner by ~75.2; lobe 2's ramp starts at 97
+RELEASE_B = 165.0      # double tap end: off cliff B by ~153.2; 15 deg short of the MG995's 180
+SERVO_DPS = 375.0      # MG995 no-load speed, 0.16 s / 60 deg at 6 V (0.2 s at 4.8 V = 300 deg/s)
+
 # The motion programme: (section, caption, kind, duration s, args). Kinds:
 #   hold                       nothing moves
 #   gimbal  (joint, [angles])  pan / tilt / roll through the waypoints (eased, time by angle)
@@ -326,22 +354,24 @@ def smooth(f):
 #   release (theta0, theta1)   the servo steps past a cliff at full speed: physical time, shown
 #                              in slow motion
 PROGRAMME = [
-    ("Start", "At rest: hammer 5 mm over the roof", "hold", 0.6, ()),
-    ("Start", "Park the hammer before the gimbal moves (cam 0 -> 120)", "cam", 2.0, (0.0, 120.0)),
+    ("Start", "At rest: hammer 5 mm over the roof (cam 0 = 500 us)", "hold", 0.6, ()),
+    ("Start", f"Park the hammer before the gimbal moves (cam 0 -> {PARK_A:g})", "cam", 2.0, (0.0, PARK_A)),
     ("1 Pan", "Pan sweep, the DS3240's full +/-135 (270 deg servo)", "gimbal", 6.0, ("pan", [0.0, 135.0, -135.0, 0.0])),
     ("2 Tilt", "Tilt a full 360 with the hammer parked", "gimbal", 6.0, ("tilt", [0.0, 360.0])),
     ("3 Roll", "Roll +/-90 (MG90S)", "gimbal", 4.0, ("roll", [0.0, 90.0, -90.0, 0.0])),
-    ("4 Striker", "Re-arm: cam back to 0, the arm rides the ramp down", "cam", 1.5, (120.0, 0.0)),
-    ("4 Striker", "Park: cam forward to 120 (top of lobe 1)", "cam", 1.5, (0.0, 120.0)),
-    ("4 Striker", "Single tap: step past the 125 cliff", "cam", 0.3, (120.0, 124.0)),
-    ("4 Striker", "Single tap: the leaf throws the arm onto its stop, the head lets off to the roof", "release", 2.4, (124.0, 134.0)),
-    ("4 Striker", "Re-arm: cam back to 0, the cliff folds the pawl", "cam", 2.6, (134.0, 0.0)),
-    ("4 Striker", "Park at 120", "cam", 1.2, (0.0, 120.0)),
-    ("4 Striker", "Double tap: past the 125 cliff", "cam", 0.3, (120.0, 124.0)),
-    ("4 Striker", "Double tap, first tap", "release", 2.0, (124.0, 134.0)),
-    ("4 Striker", "Double tap: lobe 2 lifts the arm again", "cam", 2.0, (134.0, 244.0)),
-    ("4 Striker", "Double tap, second tap (past the 245 cliff)", "release", 2.0, (244.0, 254.0)),
-    ("4 Striker", "Return to rest: cam back to 0, both cliffs fold the pawl", "cam", 3.0, (254.0, 0.0)),
+    ("4 Striker", "Re-arm: cam back to 0, the arm rides the ramp down", "cam", 1.5, (PARK_A, 0.0)),
+    ("4 Striker", f"Park: cam forward to {PARK_A:g} (top of lobe 1)", "cam", 1.5, (0.0, PARK_A)),
+    ("4 Striker", f"Single tap: step toward the {CLIFF_A:g} cliff", "cam", 0.3, (PARK_A, CLIFF_A - 1)),
+    ("4 Striker", "Single tap: the leaf throws the arm onto its stop, the head lets off to the roof", "release", 2.4,
+     (CLIFF_A - 1, RELEASE_A)),
+    ("4 Striker", "Re-arm: cam back to 0, the cliff folds the pawl", "cam", 2.6, (RELEASE_A, 0.0)),
+    ("4 Striker", f"Park at {PARK_A:g}", "cam", 1.2, (0.0, PARK_A)),
+    ("4 Striker", f"Double tap: toward the {CLIFF_A:g} cliff", "cam", 0.3, (PARK_A, CLIFF_A - 1)),
+    ("4 Striker", "Double tap, first tap", "release", 2.0, (CLIFF_A - 1, RELEASE_A)),
+    ("4 Striker", "Double tap: lobe 2 lifts the arm again (~0.25 s after tap 1 at full speed)", "cam", 2.0,
+     (RELEASE_A, CLIFF_B - 1)),
+    ("4 Striker", f"Double tap, second tap (past the {CLIFF_B:g} cliff)", "release", 2.0, (CLIFF_B - 1, RELEASE_B)),
+    ("4 Striker", "Return to rest: cam back to 0, both cliffs fold the pawl", "cam", 3.0, (RELEASE_B, 0.0)),
     ("End", "At rest", "hold", 0.8, ()),
 ]
 COLUMNS = ("T", "pan", "tilt", "roll", "theta", "phi", "alpha", "x", "seg", "phys_ms", "slow")

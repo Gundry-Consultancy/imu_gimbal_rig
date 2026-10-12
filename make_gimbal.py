@@ -73,7 +73,22 @@ DS3240 = dict(L=40.5, W=20.5, H=46.2, case_top=4.5,   # A, C, D
               wire_notch=dict(width=8.0, depth="tab"),
               # P-S assumed (stock horn) -- or print horn_ds3240_printed, which fits this pocket exactly
               horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0, pilot=2.0, arm_screw=2.7))
-STANDARD = DS3240      # tilt and pan servos (an MG995 would need its own measurements)
+STANDARD = DS3240      # tilt and pan servos
+# MG995 (the striker's cam servo since 2026-10-12): datasheet values, NOT measured yet. "Standard"
+# servos vary: the measured DS3240 is 0.8 mm wider, 3.3 mm taller and has G 14.0 against this
+# datasheet's 12.1, so measure these on your servo before printing: A L, C W, G spline_above_tab, F tab_t, J/K holes,
+# H (spline centre to body end, sets offset), case_top (spline top to case top) and the horn P-S.
+MG995 = dict(L=40.7, W=19.7, H=42.9, case_top=4.5,     # A, C, D datasheet; case_top assumed as DS3240 (measure)
+             tab_len=54.0, tab_t=2.8,                  # B; F from D - E - G = 42.9 - 28 - 12.1 (measure)
+             holes=(48.0, 49.5), hole_across=10.0,     # J 48-49.5 (slotted), K 9.5-10 (measure)
+             pilot=2.4, offset=40.7 / 2 - 10.0,        # H ~10 assumed (measure)
+             spline_r=3.0,
+             spline=dict(n=25, d=6.0, tooth=0.3, engage=4.0, screw=3.2, head=6.0),   # 25T, M3 centre screw
+             spline_above_tab=12.1,                    # G datasheet (measure)
+             pilot_wall=1.2,
+             wire_notch=dict(width=8.0, depth="tab"),  # as the DS3240: runs between the two pilots
+             # P-S assumed (stock horn, as the DS3240; horn_ds3240_printed has the same 25T socket)
+             horn=dict(len=46.0, width=8.5, depth=2.5, hub=3.5, centre=7.0, pilot=2.0, arm_screw=2.7))
 
 # --- servo plate fit tuning (after the first test print, 2026-10-10) --------
 # The servos would not go in: the cable exit at the spline end hit the plate, the cut-out
@@ -866,7 +881,7 @@ def build(variants=(MG90S_TAB,), check=True):
     add("StrikerSpring", st["leaf_rest"], "Striker drive leaf (at rest)")
     add("StrikerPawl", st["pawl_rest"], "Striker pawl")
     add("StrikerCam", st["cam"], "Striker cam")
-    add("StrikerServo", st["servo"], "REF MG90S-size 270 deg servo (cam)")
+    add("StrikerServo", st["servo"], "REF MG995 servo (cam, ~180 deg)")
     for i, shp in enumerate(st["pivot_parts"]):
         add(f"StrikerPivot{i}", shp, ("Striker bushing", "Striker spacer", "Striker spacer")[i])
     add("StrikerArmParked", st["arm_park"], "REF striker arm parked", visible=False)

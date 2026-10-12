@@ -65,7 +65,7 @@ holes unless a row says otherwise.
 |---|---|---|---|---|---|---|---|
 | MG90S (**measured**) | 22.7 x 12.3 x 32.0 (to spline top) | 32.2 | 27.5 (single row) | ~16.8; tab top to spline top 11.7–12 | 21T | 180° | 2.2 kg·cm @ 6 V |
 | DS3240MG (**measured**) | 40.5 x 20.5 x 46.2 (to spline top) | 54.5 | 48.5–48.6 x 9.5–10 | 28.2; tab 3.08; tab top to spline top 14 | 25T | 180° **or** 270° (same body) | 36–45 kg·cm |
-| MG995 | 40.7 x 19.7 x 42.9 | 54 | 48–49.5 x 9.5–10 | 28 | 25T | ~180° | 10 kg·cm @ 6 V |
+| MG995 (datasheet; **the striker cam servo since 2026-10-12: measure it**) | 40.7 x 19.7 x 42.9 | 54 | 48–49.5 x 9.5–10 | 28; tab ~2.8 (assumed); tab top to spline top 12.1 | 25T | ~180° | 8.5 kg·cm @ 4.8 V, 10 @ 6 V |
 | DSC55MG (9imod?) | 39.9 x 20.1 x 46.0 | ~54? | unpublished: **measure** | ? | 25T | 270° (180° variant exists) | 43–58 kg·cm, 6–8.4 V HV |
 
 DS3240 STEP model: https://cdn.shopify.com/s/files/1/0673/6848/5000/files/DS3240.stp
@@ -78,3 +78,14 @@ DS3240 STEP model: https://cdn.shopify.com/s/files/1/0673/6848/5000/files/DS3240
   because the generous readings add up.
 - **Still to measure:** horn sizes (P–S on `servo-measurements.png`) and the
   DS3240 tab hole diameter.
+- **MG995:** the CAD uses datasheet values. "Standard size" servos vary,
+  as the measured DS3240 shows against the MG995 datasheet:
+  - body 20.5 vs 19.7 wide, 46.2 vs 42.9 tall to the spline
+  - tab top to spline top 14.0 vs 12.1
+  - tabs 3.08 vs ~2.8 thick, 54.5 vs 54 long
+
+  Before printing the tower, measure the MG995's body L x W, tab
+  thickness and length, hole spacing (both ways), tab top to spline top (G),
+  spline centre to the body end (H), spline top to case top, and the horn's
+  arm width and hub height. Then update `MG995` in `make_gimbal.py` and
+  `CAM_HUB` in `make_striker.py`.
