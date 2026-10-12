@@ -147,12 +147,14 @@ STEP_DEFS = [
      "Lower spine and bottom deck (bosses down) in under the ring from the side; upper spine and top deck "
      "(bosses up) from above. Two M3 bolts up from under the bottom deck (or tilt the ring 90 deg and put them "
      "in from the side); washers and nuts on the top deck's bosses, slid in under the roof edge."),
-    ("cam_servo", "Cam servo into the striker tower",
-     "On the bench: the MG90S-size 270 deg servo into the tower's -X wall from inside the tower (the tab face), "
-     "bottom first, spline end (cable) up."),
     ("tower", "Tower onto the yoke",
      "4 x M3 x 14 through the tower's base plate into the yoke's -Y upright, reached through the holes in the "
-     "leaf seat while the seat is still empty. The tower covers the tilt axle screw, so that must be in first."),
+     "leaf seat while the seat is still empty. The tower covers the tilt axle screw, so that must be in first. "
+     "Bolt it on before the MG995 goes in: the servo's body covers the +X upper bolt's hex-key path."),
+    ("cam_servo", "Cam servo into the striker tower",
+     "The MG995 into the tower's +X wall from inside the tower (the tab face), bottom first, spline end (cable) "
+     "up; tip its spline end out through the -X wall's window while the body goes in. 4 tab screws from "
+     "inside, the driver through the -X wall's access holes."),
     ("pawl", "Pawl onto the drive leaf",
      "On the bench: pin the pawl between the leaf's lugs with ~12 mm of 1.75 mm filament; melt or flare the "
      "ends. It must swing freely and fall back onto its stop."),
@@ -169,9 +171,10 @@ STEP_DEFS = [
     ("leaf", "Drive leaf root pad to the seat",
      "4 x M3 x 16 through the root pad, self-tapped into the seat's pilots, lugs and pawl toward the servo."),
     ("cam", "Cam onto the servo",
-     "Stock horn trimmed to 14 mm and CA-glued into the cam. With the servo at 0 deg, press the cam on (pawl "
-     "tip just clear of the base circle, 45 deg up from the cam's +Y side) and fit the centre screw. Check the "
-     "hover gap: head 5 mm above the roof (shim the rest-stop lip to trim)."),
+     "Stock MG995 horn trimmed to 18 mm and CA-glued into the cam (or the 25T spline cam). Command 500 us "
+     "(rest), slide the cam in from behind the tower and onto the spline from the -X side, on the tooth that "
+     "puts the pawl tip just clear of the base circle, 45 deg up from the cam's +Y side, before lobe 1; fit "
+     "the M3 centre screw. Check the hover gap: head 5 mm above the roof (shim the rest-stop lip to trim)."),
 ]
 
 # Sub-assembly offsets (presentation only): where each sub-assembly is built before it is carried home.
@@ -217,8 +220,8 @@ def part_items(g, variant_label):
         cat = "spine" if "spine" in name else "stack"
         add(name.title().replace("_", ""), labels[name] + ("" if "spine_upper" not in name else variant_label),
             shp, cat, "stack" if cat == "spine" else f"boards_{name.split('_')[1]}")
-    add("StrikerStand", "Striker tower" + variant_label, st["stand"], "stand", "cam_servo")
-    add("StrikerServo", "REF MG90S-size 270 deg cam servo", st["servo"], "servo", "cam_servo",
+    add("StrikerStand", "Striker tower" + variant_label, st["stand"], "stand", "tower", [V(0, -TOWER_BACK, 0)])
+    add("StrikerServo", "REF MG995 cam servo", st["servo"], "servo", "cam_servo",
         [_servo_dir(plates, "striker_stand") * 20], phase=1)
     add("StrikerSpring", "Striker drive leaf (at rest)", st["leaf_rest"], "leaf", "pawl")
     add("StrikerPawl", "Striker pawl", st["pawl_rest"], "cam", "pawl", [V(0, -25, 0)], phase=0)
@@ -228,7 +231,7 @@ def part_items(g, variant_label):
         sx = (0, -1, 1)[i]
         add(names[i], ("Striker bushing", "Striker spacer (-X)", "Striker spacer (+X)")[i], shp, "pivot", "pivot",
             [V(sx * 25 if sx else -60, 0, 0)])
-    add("StrikerCam", "Striker cam (+ trimmed horn, CA-glued)", st["cam"], "cam", "cam", [V(25, 0, 0)])
+    add("StrikerCam", "Striker cam (+ trimmed horn, CA-glued)", st["cam"], "cam", "cam", list(CAM_PATH))
     return items
 
 
@@ -312,12 +315,13 @@ def stack_fixings(g, pts, variant):
 TAB_SCREWS = {"base": ("base_servo", "selftap", "M3", 12, "PanServo"),
               "pan_yoke": ("yoke_servo", "selftap", "M3", 12, "TiltServo"),
               "tilt_ring_mg90s": ("ring_servo", "selftap", "M2", 8, "RollServo"),
-              "striker_stand": ("cam_servo", "selftap", "M2", 8, "StrikerServo")}
+              "striker_stand": ("cam_servo", "selftap", "M3", 12, "StrikerServo")}
 # horn pocket in HORNS -> (screw-to-part step, press-on step, arm screw, centre screw)
 HORN_STEPS = {"pan_yoke": ("pan_horn", "yoke_on_base", ("selftap", "M2.5", 8), ("cap", "M3", 10)),
               "tilt_ring_mg90s": ("tilt_horn", "ring_in_yoke", ("selftap", "M2.5", 8), ("cap", "M3", 10)),
               "stack_middle_deck": ("roll_horn", "middle_in_ring", ("selftap", "M2", 6), ("pan", "M2", 8)),
-              "striker_cam": ("cam", "cam", None, ("pan", "M2", 6))}
+              "striker_cam": ("cam", "cam", None, ("pan", "M3", 8))}
+CAM_PATH = [V(-10, -45, 0), V(-10, 0, 0)]     # in from behind the tower, then +X onto the MG995's spline
 
 
 def servo_fixings(g, pts):
@@ -354,12 +358,12 @@ def horn_fixings(g, pts):
         p = pts[f"{name}_horn"]
         h, fr = p["horn"], p["frame"]
         top = h["hub"] + (3.5 if name != "striker_cam" else 0.0)
-        servo = mg.MG90S if name in ("stack_middle_deck", "striker_cam") else mg.STANDARD
+        servo = {"stack_middle_deck": mg.MG90S, "striker_cam": mg.MG995}.get(name, mg.STANDARD)
         shp = mg.placed(horn_model(h, top, servo["spline_r"]), fr["origin"], fr["x"], fr["z"])
         z = V(fr["z"]).normalize()
-        label = {"striker_cam": "Cam horn, trimmed to 14 mm (CA-glued in the cam)"}.get(
+        label = {"striker_cam": "Cam horn, trimmed to 18 mm (CA-glued in the cam)"}.get(
             name, f"Horn on {name} (stock, or the printed horn)")
-        hi = Item(f"Horn_{name}", label, shp, "horn", s_step, path=[z * 25] if name != "striker_cam" else [V(25, 0, 0)])
+        hi = Item(f"Horn_{name}", label, shp, "horn", s_step, path=[z * 25] if name != "striker_cam" else list(CAM_PATH))
         out.append(hi)
         if arm_s:
             scr = fx.make(arm_s[0], arm_s[1], arm_s[2], material="steel")
@@ -469,7 +473,7 @@ SUBS = {   # sub-assembly -> the steps whose items it carries home (in the step 
     "bottom": ("boards_bottom",),
     "top": ("boards_top",),
     "arm": ("pawl", "arm_pin", "stop_screw"),
-    "tower": ("cam_servo",),
+    "tower": (),            # the MG995 goes in after the tower is on the yoke
 }
 
 

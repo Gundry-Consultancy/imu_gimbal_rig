@@ -779,6 +779,16 @@ def _teardrop_x(r, y, z, x0, x1):
     return cyl_x(r, y, z, x0, x1).fuse(prism_yz(pts + [(y, z)], x0, x1))
 
 
+def _teardrop_hole_x(r, y, z, x0, x1):
+    """Hole along x with a 45 deg point upward (+z): prints without support in an upright wall."""
+    k = r / math.sqrt(2)
+    pts = [(y - k, z + k), (y, z + r * math.sqrt(2)), (y + k, z + k)]
+    return cyl_x(r, y, z, x0, x1).fuse(prism_yz(pts + [(y, z)], x0, x1))
+
+
+DRIVER_HOLE = 7.2      # driver access through the -X wall to the MG995's tab screws
+
+
 def _wall(pts, side):
     x0, x1 = (WALL_X, WALL_X + WALL_T) if side > 0 else (-WALL_X - WALL_T, -WALL_X)
     return prism_yz(pts, x0, x1)
@@ -855,6 +865,11 @@ def tower(g, mg, st, plate, plate_cuts, plate_bosses):
         for sx in sides:
             x0, x1 = sorted((sx * (WALL_X - 0.5), sx * (xo + 1)))
             cuts.append(win.common(mg.box(x0, x1, -500, 500, -500, 500)))
+    # driver access to the MG995's tab screws, straight through the -X wall
+    pl = mg.PLATES["striker_stand"]
+    for xa, xb, yy, _ in mg.servo_pilots(pl["servo"]):
+        q = mg._to_world(pl, ((xa + xb) / 2, yy, 0.0))
+        cuts.append(_teardrop_hole_x(DRIVER_HOLE / 2, q.y, q.z, -xo - 1, -WALL_X + 1))
     fw = mg.window_pts(-WALL_X + 4, WALL_X - 4, y_back + 6, P[0] - 8)                  # stops short of the seat
     cuts.append(mg.prism(fw, V(0, 0, BASE_BOTTOM - 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), 0, 6))
     return shape.cut(Part.makeCompound(cuts)).removeSplitter()

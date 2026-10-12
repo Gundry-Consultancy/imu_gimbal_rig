@@ -34,6 +34,7 @@
   "seat_lean_deg": 3.34,
   "pin_travel_y": 14.6,
   "pin_rise": 0.3,
+  "tail_tilt_deg": 28.0,
   "pin_u_rest": -0.05,
   "pin_u_park": 0.22,
   "pin_u_min": -1.91,

@@ -80,7 +80,8 @@ STANDARD = DS3240      # tilt and pan servos
 # H (spline centre to body end, sets offset), case_top (spline top to case top) and the horn P-S.
 MG995 = dict(L=40.7, W=19.7, H=42.9, case_top=4.5,     # A, C, D datasheet; case_top assumed as DS3240 (measure)
              tab_len=54.0, tab_t=2.8,                  # B; F from D - E - G = 42.9 - 28 - 12.1 (measure)
-             holes=(48.0, 49.5), hole_across=10.0,     # J 48-49.5 (slotted), K 9.5-10 (measure)
+             holes=(48.6, 49.3), hole_across=9.75,     # J 48-49.5: slotted 48.6-49.3 (the tab holes add
+                                                       # ~+/-0.5), K 9.5-10 (measure)
              pilot=2.4, offset=40.7 / 2 - 10.0,        # H ~10 assumed (measure)
              spline_r=3.0,
              spline=dict(n=25, d=6.0, tooth=0.3, engage=4.0, screw=3.2, head=6.0),   # 25T, M3 centre screw
