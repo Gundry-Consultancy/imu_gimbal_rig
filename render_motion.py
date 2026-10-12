@@ -40,7 +40,7 @@ FPS = float(os.environ.get("MOTION_FPS", "10"))
 SIZE = (12.8, 6.4)
 DPI = 75
 CLOSE = dict(y=(-128.0, 38.0), z=(-28.0, 132.0))      # striker close-up window (yoke frame)
-CAM_WIN = dict(y=(-124.0, -84.0), z=(12.0, 52.0))      # cam / pawl inset window (yoke frame)
+CAM_WIN = dict(y=(-143.0, -95.0), z=(11.0, 59.0))      # cam / pawl inset window (yoke frame)
 
 
 def _cam_keep(b, name, t):
@@ -340,7 +340,7 @@ def striker_plot(doc_path=None, path=None):
     axes[-1, 0].set_xlabel(f"animation time in the striker section (s); shaded: releases, shown "
                            f"{slows[0]:.0f}-{slows[-1]:.0f}x slow", color=INK2)
     axes[3, 1].set_ylim(-0.5, 12)
-    axes[-1, 1].set_xlabel("ms after the servo leaves 124 deg", color=INK2)
+    axes[-1, 1].set_xlabel(f"ms after the servo leaves {rel['args'][0]:g} deg", color=INK2)
     fig.suptitle("Striker cycle: re-arm, park, single tap, re-arm, double tap, rest (from the cam model)",
                  x=0.01, ha="left", fontsize=12, color=INK, weight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.97))

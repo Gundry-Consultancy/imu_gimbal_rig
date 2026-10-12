@@ -94,7 +94,8 @@ def joint_defs(model, pawl_pin):
         "Tilt": ("Tilt (yoke - tilt ring, Y)", "Revolute", "Yoke", "Ring", (0, 0, 0), (0, 1, 0), None),
         "Roll": ("Roll (tilt ring - stack, X)", "Revolute", "Ring", "Stack", (0, 0, 0), (1, 0, 0), (-90.0, 90.0)),
         "TowerFix": ("Tower bolted to the yoke", "Fixed", "Yoke", "Tower", (0, 0, 0), (0, 0, 1), None),
-        "Cam": ("Cam (tower - cam, -X: forward)", "Revolute", "Tower", "Cam", (0, K[0], K[1]), (-1, 0, 0), (0.0, 270.0)),
+        "Cam": ("Cam (tower - cam, -X: forward = increasing pulse)", "Revolute", "Tower", "Cam", (0, K[0], K[1]), (-1, 0, 0),
+                (0.0, 180.0)),
         "ArmPivot": ("Hammer arm pivot (tower - arm, X)", "Revolute", "Tower", "Arm", (0, P[0], P[1]), (1, 0, 0),
                      (0.0, 50.0)),
         "LeafRoot": ("Drive leaf root pad on the seat", "Fixed", "Tower", "Leaf", (0, 0, 0), (0, 0, 1), None),
@@ -301,8 +302,9 @@ def flex_shapes(model):
     """Drive leaf at each whole degree of arm angle (its cantilever shape solved for that arm
     angle), and the arm with its head leaf bent x mm further (let-off), 0.5 mm steps to HOVER."""
     import make_striker as mk
+    import striker_motion as sm
     leaf = []
-    for d in range(0, int(math.ceil(model.phi_cam(120.0))) + 2):
+    for d in range(0, int(math.ceil(model.phi_cam(sm.PARK_A))) + 2):
         leaf.append((f"LeafPhi{d:02d}", f"Drive leaf, arm at {d} deg", mk.leaf_solid(model.leaf, model.leaf_pts(float(d)))))
     arm = []
     lay = model.lay
@@ -321,6 +323,7 @@ def flex_shapes(model):
 
 def model_extra(model, defs, members, leaf_shapes, arm_shapes, pawl_pin):
     import make_striker as mk
+    import striker_motion as sm
     return dict(
         K=list(model.K), P=list(model.P), pin0=list(model.pin0), w_pin=model.w_pin, pawl_pin=[pawl_pin.y, pawl_pin.z],
         phi_step=model.phis[1] - model.phis[0], stations=[list(s[1:]) for s in model.stations],
@@ -328,7 +331,7 @@ def model_extra(model, defs, members, leaf_shapes, arm_shapes, pawl_pin):
         arm_grid=[[int(n[9:]) / 10.0, n] for n, _, _ in arm_shapes if n.startswith("ArmLetOff")],
         joints={k: dict(label=v[0], type=v[1], parent=v[2], child=v[3], point=list(v[4]), axis=list(v[5]),
                         limits=v[6]) for k, v in defs.items()},
-        members=members, hover=mk.HOVER, z_roof=model.z_roof, park=model.phi_cam(120.0),
+        members=members, hover=mk.HOVER, z_roof=model.z_roof, park=model.phi_cam(sm.PARK_A),
         lobes=[list(x) for x in mk.LOBES], cam_r0=mk.CAM_R0, cam_h=model.h, b0=model.b0, bp=model.bp,
         k_leaf=model.k_leaf, d_rest=model.leaf.d_rest, m_arm_g=model.m_arm * 1000, m_head_g=model.m_head * 1000,
         i_tot=model.i_tot, i_head=model.i_head, head_preload=model.hl["preload"], head_k=model.hl["k"],
@@ -348,7 +351,7 @@ def build():
     assert err < 0.06, f"striker model differs from the built striker ({err:.3f} mm)"
     print(f"striker model: cam {model.K}, pivot {model.P} (matches the build to {err:.3f} mm)", flush=True)
     tl = sm.build_timeline(model)
-    tl["park"] = model.phi_cam(120.0)
+    tl["park"] = model.phi_cam(sm.PARK_A)
     print(f"timeline: {len(tl['rows'])} rows, {tl['duration']:.1f} s, park {tl['park']:.3f} deg", flush=True)
     leaf_shapes, arm_shapes = flex_shapes(model)
     print(f"flex shapes: {len(leaf_shapes)} leaf, {len(arm_shapes)} arm", flush=True)
@@ -457,9 +460,9 @@ def verify(path):
     comps = {k: doc.getObject(f"Body_{k}") for k in BODIES}
     corners = {k: _corners(Part.makeCompound([o.Shape for o in c.Group if hasattr(o, "Shape")])) for k, c in comps.items()}
     out = {}
-    poses = [dict(Pan=60, Tilt=30, Roll=-45, Cam=200, ArmPivot=30, PawlPin=40),
-             dict(Pan=-135, Tilt=180, Roll=90, Cam=120, ArmPivot=48, PawlPin=0),
-             dict(Pan=135, Tilt=275, Roll=-90, Cam=270, ArmPivot=0, PawlPin=100)]
+    poses = [dict(Pan=60, Tilt=30, Roll=-45, Cam=110, ArmPivot=30, PawlPin=40),
+             dict(Pan=-135, Tilt=180, Roll=90, Cam=69, ArmPivot=48, PawlPin=0),
+             dict(Pan=135, Tilt=275, Roll=-90, Cam=170, ArmPivot=0, PawlPin=100)]
     # (a) forward-kinematics poses: the solver must leave them where they are
     worst = 0.0
     for pose in poses:
