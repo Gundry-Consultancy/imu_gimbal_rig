@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gimbal Servo Console</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2430;--mute:#667085;--line:#d8dde5;--accent:#2563eb;--warn:#b42318;--ok:#067647}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#11151b;--card:#1a2029;--ink:#e6e9ee;--mute:#98a2b3;--line:#2c3440;--accent:#5b8def;--warn:#f97066;--ok:#47cd89}}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+h1{font-size:16px;margin:0 12px 0 0}
+main{padding:12px 16px;display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.card h2{font-size:14px;margin:0 0 2px}.sub{color:var(--mute);font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+input[type=number]{width:74px;padding:3px 4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:5px}
+input[type=range]{width:100%}
+button{padding:4px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button.danger{background:var(--warn);color:#fff;border-color:var(--warn)}
+button:disabled{opacity:.45;cursor:default}
+.val{font-variant-numeric:tabular-nums;font-weight:600}.off{color:var(--warn)}.on{color:var(--ok)}
+#log{grid-column:1/-1;height:180px;overflow:auto;font:12px ui-monospace,monospace;white-space:pre-wrap}
+label{display:inline-flex;gap:4px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Gimbal servo console</h1>
+  <button id="connect" class="primary">Connect</button>
+  <button id="stopall" class="danger" disabled>STOP + all OFF</button>
+  <button data-cmd="STATUS" disabled>Refresh</button>
+  <button data-cmd="CENTER ALL" disabled title="Horns detached only">Centre all</button>
+  <button data-cmd="STOP" disabled>Stop motion</button>
+  <label><input type="checkbox" id="interlock" disabled checked> Tilt/roll interlock</label>
+  <label><input type="checkbox" id="bootoff" disabled checked> PCA off at boot</label>
+  <span id="state" class="sub">Not connected (needs Chrome or Edge; Web Serial)</span>
+</header>
+<main id="cards">
+  <section class="card" style="grid-column:1/-1">
+    <h2>Sequences</h2><div class="sub">Hammer pulses are the MG995 model values (uncalibrated). Tilt/roll moves require the hammer parked while the interlock is on.</div>
+    <div class="row" id="seqs"></div>
+  </section>
+</main>
+<main><section class="card" id="log"></section></main>
+<script>
+const $ = (s, e = document) => e.querySelector(s);
+let port, writer, connected = false, status = null;
+const log = (t, cls) => { const d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; $('#log').append(d); $('#log').scrollTop = 1e9; };
+async function send(cmd, quiet) { if (!writer) return; if (!quiet) log('> ' + cmd); await writer.write(new TextEncoder().encode(cmd + '\n')); }
+function enable(on) { document.querySelectorAll('button:not(#connect), input').forEach(b => b.disabled = !on); }
+
+function card(c) {
+  const el = document.createElement('section');
+  el.className = 'card'; el.id = 'ch' + c.ch;
+  el.innerHTML = `<h2>CH${c.ch} · ${c.label}</h2><div class="sub">${c.name} · ${c.cam ? 'angle = degrees from rest' : 'angle = degrees from centre'} · ${c.deg_span}° span</div>
+  <div class="row"><span class="val now">–</span></div>
+  <input type="range" class="slider" min="400" max="2600" step="1">
+  <div class="row"><button data-a="center">Centre</button><button data-a="rest">Rest</button><button data-a="off" class="danger">Off</button>
+    <label><input type="checkbox" class="lim"> End stops</label> <input type="number" class="lo" title="min us"><input type="number" class="hi" title="max us"><button data-a="setlim">Set</button></div>
+  <div class="row">Go to <input type="number" class="ang" placeholder="deg"><button data-a="angle">angle</button>
+    <input type="number" class="us" placeholder="us"><button data-a="us">µs</button>
+    <input type="number" class="duty" placeholder="%" step="0.01"><button data-a="duty">duty %</button></div>
+  <div class="row">Sweep <input type="number" class="s0" placeholder="start us"><input type="number" class="s1" placeholder="end us">
+    <input type="number" class="rate" placeholder="us/s" value="200"> <input type="number" class="cyc" value="1" title="cycles (0 = forever)">
+    <button data-a="sweep" class="primary">Sweep</button><button data-a="stop">Stop</button></div>`;
+  const v = s => $(s, el).value, ch = c.ch;
+  el.addEventListener('click', e => {
+    const a = e.target.dataset.a; if (!a) return;
+    ({ center: () => send(`CENTER ${ch}`), rest: () => send(`REST ${ch}`), off: () => send(`OFF ${ch}`),
+       setlim: () => send(`SETLIMITS ${ch} ${v('.lo')} ${v('.hi')}`),
+       angle: () => send(`ANGLE ${ch} ${v('.ang')}`), us: () => send(`US ${ch} ${v('.us')}`), duty: () => send(`DUTY ${ch} ${v('.duty')}`),
+       sweep: () => send(`SWEEP ${ch} ${v('.s0')} ${v('.s1')} ${v('.rate')} ${v('.cyc')}`), stop: () => send(`STOP ${ch}`) })[a]();
+  });
+  $('.lim', el).addEventListener('change', e => send(`LIMITS ${ch} ${e.target.checked ? 'ON' : 'OFF'}`));
+  $('.slider', el).addEventListener('change', e => send(`MOVE ${ch} ${e.target.value} 400`));
+  $('#cards').append(el);
+  $('.lo', el).value = c.lo; $('.hi', el).value = c.hi; $('.s0', el).value = c.lo; $('.s1', el).value = c.hi;
+  return el;
+}
+
+function render(s) {
+  status = s;
+  $('#interlock').checked = s.interlock; $('#bootoff').checked = s.boot_off;
+  for (const c of s.channels) {
+    const el = $('#ch' + c.ch) || card(c);
+    const now = $('.now', el);
+    now.textContent = c.us == null ? 'OFF (no holding torque)' : `${c.us} µs · ${c.duty}% · ${c.deg}°${c.sweeping ? ' · sweeping' : c.ramping ? ' · moving' : ''}`;
+    now.className = 'val now ' + (c.us == null ? 'off' : 'on');
+    $('.lim', el).checked = c.limits;
+    if (c.us != null) $('.slider', el).value = c.us;
+  }
+  $('#state').textContent = `Connected · period ${s.period_us} µs${s.busy ? ' · sequence running' : ''}`;
+}
+
+function onLine(line) {
+  if (!line.startsWith('{')) { if (line.trim()) log(line); return; }
+  let m; try { m = JSON.parse(line); } catch { log(line); return; }
+  if (m.type === 'status') render(m);
+  else if (m.type === 'seqs') { $('#seqs').innerHTML = ''; for (const [k, d] of Object.entries(m.seqs)) { const b = document.createElement('button'); b.textContent = k; b.title = d; b.onclick = () => send('SEQ ' + k); $('#seqs').append(b); } }
+  else if (m.type === 'error') log('ERROR: ' + m.error, 'off');
+  else log(m.text || line);
+}
+
+async function connect() {
+  if (connected) { location.reload(); return; }
+  if (!('serial' in navigator)) { alert('Web Serial needs Chrome or Edge (desktop).'); return; }
+  port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200 });
+  writer = port.writable.getWriter(); connected = true; enable(true);
+  $('#connect').textContent = 'Disconnect';
+  await send(''); await send('SEQS'); await send('STATUS');
+  const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  setInterval(() => connected && send('STATUS', true), 3000);
+  while (true) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += value; let i;
+    while ((i = buf.search(/\r?\n/)) >= 0) { onLine(buf.slice(0, i)); buf = buf.slice(i).replace(/^\r?\n/, ''); }
+  }
+}
+$('#connect').onclick = () => connect().catch(e => log('Connect failed: ' + e.message, 'off'));
+$('#stopall').onclick = () => { send('STOP'); send('OFF ALL'); };
+document.querySelectorAll('header [data-cmd]').forEach(b => b.onclick = () => send(b.dataset.cmd));
+$('#interlock').onchange = e => send('INTERLOCK ' + (e.target.checked ? 'ON' : 'OFF'));
+$('#bootoff').onchange = e => send('BOOTOFF ' + (e.target.checked ? 'ON' : 'OFF'));
+enable(false);
+</script>
+</body>
+</html>

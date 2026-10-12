@@ -47,6 +47,37 @@ travel, pulse limits, neutral trims and signs. Pan/tilt/roll zero means home.
 Cam neutral is mid-travel (about 90 degrees), **not rest**. Center with the
 horns and cam detached. Fit the cam at its verified rest endpoint, not neutral.
 
+## Web Serial servo console (12 October)
+
+`circuitpython_code.py` is now an 8-channel servo console. Copy it to CIRCUITPY as `code.py`.
+It needs no extra libraries: it talks to the PCA9685 registers directly and never resets the chip.
+
+[`servo_console.html`](servo_console.html) drives it from Chrome or Edge using Web Serial. Open
+the file locally, or from the CIRCUITPY drive, then click **Connect** and pick the board's serial
+port.
+
+- **Channels 0-3:**
+  - Labelled with accelerometer axes: Y tilt, Tap (hammer cam), X roll, Z pan.
+  - Bench-trimmed centres.
+  - Software end stops on by default.
+- **Channels 4-7:** spare, with end stops off.
+- **Per channel:**
+  - slider
+  - Centre, Rest, Off
+  - end-stop toggle with min/max
+  - go to angle, µs or duty %
+  - sweep (start, end, rate in µs/s, cycles; 0 = forever)
+- **Sequences:** park, single, double, rest, home, tour, centre_all. The hammer values are the
+  MG995 model pulses (uncalibrated).
+- **Tilt/roll interlock** (on by default): tilt and roll can't move unless the hammer cam is
+  parked.
+- **PCA off at boot** (on by default, stored in NVM): every output is switched off when the board
+  starts. Turn it off to keep held outputs across restarts.
+- **STOP + all OFF:** stops all motion and removes holding torque.
+
+Plain serial terminals work too. Send one command per line (`HELP` lists them); replies are
+JSON lines.
+
 ## Existing CircuitPython device
 
 The connected board was identified as `adafruit_feather_rp2040_usb_host`, running
