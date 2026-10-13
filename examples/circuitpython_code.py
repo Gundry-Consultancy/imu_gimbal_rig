@@ -49,7 +49,7 @@ for i, c in enumerate(CH):
 # Hammer cam pulses (MG995 model, uncalibrated: us = 500 + angle * 2000/180), docs/servo_control.md
 CAM_REST, CAM_PARK, CAM_SINGLE, CAM_DOUBLE = 500, 1267, 1467, 2333
 PARK_TOL = 40
-interlock = True
+interlock = False  # optional guard; never needed for CENTER / REST / OFF
 HELP = ("PING STATUS HELP SEQS | US ch us | DUTY ch % | ANGLE ch deg | MOVE ch us rate | "
         "CENTER/REST/OFF ch|ALL | LIMITS ch ON|OFF | SETLIMITS ch min max | "
         "SWEEP ch start end rate [cycles] | STOP [ch] | SEQ name | INTERLOCK ON|OFF | BOOTOFF ON|OFF")
@@ -147,21 +147,21 @@ def reply(**kw):
     print(json.dumps(kw))
 
 
-def clamp_check(ch, us):
+def clamp_check(ch, us, guard=True):
     c = CH[ch]
     if not ABS_MIN <= us <= ABS_MAX:
         raise ValueError("pulse %d outside %d-%d us" % (us, ABS_MIN, ABS_MAX))
     if c["limits"] and not c["lo"] <= us <= c["hi"]:
         raise ValueError("%s end stops are %d-%d us (LIMITS %d OFF to override)" % (c["name"], c["lo"], c["hi"], ch))
-    if interlock and c["name"] in ("tilt", "roll") and us != pos[ch]:
+    if guard and interlock and c["name"] in ("tilt", "roll") and us != pos[ch]:
         cam = pos[1]
         if cam is None or abs(cam - CAM_PARK) > PARK_TOL:
             raise ValueError("interlock: park the hammer (SEQ park) before moving tilt/roll")
 
 
-def put(ch, us):
+def put(ch, us, guard=True):
     if us is not None:
-        clamp_check(ch, us)
+        clamp_check(ch, us, guard)
     pca.set_us(ch, us)
     pos[ch] = us
 
@@ -276,7 +276,7 @@ def handle(line):
         chs = chans(p[1] if len(p) > 1 else "ALL")
         stop(chs if len(chs) < 8 else list(range(8)))
         for ch in chs:
-            put(ch, None if cmd == "OFF" else CH[ch]["center" if cmd == "CENTER" else "rest"])
+            put(ch, None if cmd == "OFF" else CH[ch]["center" if cmd == "CENTER" else "rest"], guard=False)
     elif cmd == "LIMITS":
         for ch in chans(p[1]):
             CH[ch]["limits"] = p[2].upper() == "ON"
@@ -367,12 +367,17 @@ def tick(now, dt):
 
 
 reply(type="hello", text="gimbal servo console ready", boot_off=boot_off())
+reply(type="seqs", seqs=SEQS)
 reply(**status())
 buf = ""
 last = time.monotonic()
 while True:
     now = time.monotonic()
-    tick(now, now - last)
+    try:
+        tick(now, now - last)
+    except Exception as e:
+        ramps.clear(), sweeps.clear(), queue.clear()
+        reply(type="error", error="motion stopped: %r" % e)
     last = now
     n = supervisor.runtime.serial_bytes_available
     if n:
@@ -383,6 +388,6 @@ while True:
             if line:
                 try:
                     handle(line)
-                except (ValueError, IndexError, KeyError) as e:
+                except Exception as e:  # never drop to the REPL: report and keep serving
                     reply(type="error", error=str(e) or "bad command", line=line)
     time.sleep(0.01)

@@ -32,13 +32,14 @@ label{display:inline-flex;gap:4px;align-items:center}
   <button data-cmd="STATUS" disabled>Refresh</button>
   <button data-cmd="CENTER ALL" disabled title="Horns detached only">Centre all</button>
   <button data-cmd="STOP" disabled>Stop motion</button>
-  <label><input type="checkbox" id="interlock" disabled checked> Tilt/roll interlock</label>
+  <label><input type="checkbox" id="interlock" disabled> Tilt/roll interlock</label>
+  <button id="restart" disabled title="Ctrl-C then Ctrl-D: restarts code.py (outputs switch off if PCA off at boot is on)">Restart firmware</button>
   <label><input type="checkbox" id="bootoff" disabled checked> PCA off at boot</label>
   <span id="state" class="sub">Not connected (needs Chrome or Edge; Web Serial)</span>
 </header>
 <main id="cards">
   <section class="card" style="grid-column:1/-1">
-    <h2>Sequences</h2><div class="sub">Hammer pulses are the MG995 model values (uncalibrated). Tilt/roll moves require the hammer parked while the interlock is on.</div>
+    <h2>Sequences</h2><div class="sub">Hammer pulses are the MG995 model values (uncalibrated). The optional interlock blocks tilt/roll moves unless the hammer is parked; Centre / Rest / Off are never blocked.</div>
     <div class="row" id="seqs"></div>
   </section>
 </main>
@@ -46,6 +47,8 @@ label{display:inline-flex;gap:4px;align-items:center}
 <script>
 const $ = (s, e = document) => e.querySelector(s);
 let port, writer, connected = false, status = null;
+const SEQ_DEFAULT = {park: "hammer: rest, then up onto lobe 1", single: "hammer: park, then a single tap", double: "hammer: park, then a double tap", rest: "hammer: down to rest", home: "park, then centre tilt, roll and pan", tour: "park, then pan/tilt/roll tour and home", center_all: "every channel to centre (horns detached!)"};
+function seqButtons(seqs) { $('#seqs').innerHTML = ''; for (const [k, d] of Object.entries(seqs)) { const b = document.createElement('button'); b.textContent = k; b.title = d; b.disabled = !connected; b.onclick = () => send('SEQ ' + k); $('#seqs').append(b); } }
 const log = (t, cls) => { const d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; $('#log').append(d); $('#log').scrollTop = 1e9; };
 async function send(cmd, quiet) { if (!writer) return; if (!quiet) log('> ' + cmd); await writer.write(new TextEncoder().encode(cmd + '\n')); }
 function enable(on) { document.querySelectorAll('button:not(#connect), input').forEach(b => b.disabled = !on); }
@@ -94,10 +97,15 @@ function render(s) {
 }
 
 function onLine(line) {
-  if (!line.startsWith('{')) { if (line.trim()) log(line); return; }
+  if (!line.startsWith('{')) {
+    if (line.trim()) log(line);
+    if (/Press any key to enter the REPL|^>>>|Traceback|soft reboot/.test(line)) $('#state').textContent = 'Board is not running the console firmware (REPL / crashed): press Restart firmware';
+    return;
+  }
   let m; try { m = JSON.parse(line); } catch { log(line); return; }
   if (m.type === 'status') render(m);
-  else if (m.type === 'seqs') { $('#seqs').innerHTML = ''; for (const [k, d] of Object.entries(m.seqs)) { const b = document.createElement('button'); b.textContent = k; b.title = d; b.onclick = () => send('SEQ ' + k); $('#seqs').append(b); } }
+  else if (m.type === 'seqs') seqButtons(m.seqs);
+  else if (m.type === 'hello') { log(m.text); send('STATUS', true); }
   else if (m.type === 'error') log('ERROR: ' + m.error, 'off');
   else log(m.text || line);
 }
@@ -124,6 +132,8 @@ $('#stopall').onclick = () => { send('STOP'); send('OFF ALL'); };
 document.querySelectorAll('header [data-cmd]').forEach(b => b.onclick = () => send(b.dataset.cmd));
 $('#interlock').onchange = e => send('INTERLOCK ' + (e.target.checked ? 'ON' : 'OFF'));
 $('#bootoff').onchange = e => send('BOOTOFF ' + (e.target.checked ? 'ON' : 'OFF'));
+$('#restart').onclick = async () => { if (!writer) return; log('> restart firmware'); await writer.write(new Uint8Array([3])); setTimeout(() => writer.write(new Uint8Array([4])), 400); };
+seqButtons(SEQ_DEFAULT);
 enable(false);
 </script>
 </body>
