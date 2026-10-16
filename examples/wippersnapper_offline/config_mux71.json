@@ -1,0 +1,126 @@
+{
+  "exportedFromDevice": {
+    "sd_cs_pin": 23,
+    "referenceVoltage": 0,
+    "totalGPIOPins": 0,
+    "totalAnalogPins": 0,
+    "statusLEDBrightness": 0.3,
+    "autoConfig": false,
+    "rtc": "SOFT"
+  },
+  "components": [
+    {
+      "name": "pca9548_0x71",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "pca9548",
+      "i2cDeviceAddress": "0x71",
+      "i2cMuxAddress": "0x71",
+      "autoConfig": "false"
+    },
+    {
+      "name": "ism330dhcx_m71_c1",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "ism330dhcx",
+      "i2cDeviceAddress": "0x6A",
+      "i2cMuxAddress": "0x71",
+      "i2cMuxChannel": "1",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "gyroscope"
+        },
+        {
+          "type": "ambient-temp"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "lis3dh_m71_c3",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lis3dh",
+      "i2cDeviceAddress": "0x18",
+      "i2cMuxAddress": "0x71",
+      "i2cMuxChannel": "3",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "lsm6dso32_m71_c3",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lsm6dso32",
+      "i2cDeviceAddress": "0x6A",
+      "i2cMuxAddress": "0x71",
+      "i2cMuxChannel": "3",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "gyroscope"
+        },
+        {
+          "type": "ambient-temp"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "lis2mdl_m71_c6",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lis2mdl",
+      "i2cDeviceAddress": "0x1E",
+      "i2cMuxAddress": "0x71",
+      "i2cMuxChannel": "6",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "magnetic-field"
+        }
+      ]
+    },
+    {
+      "name": "lsm6ds3_m71_c6",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lsm6ds3",
+      "i2cDeviceAddress": "0x6A",
+      "i2cMuxAddress": "0x71",
+      "i2cMuxChannel": "6",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "gyroscope"
+        },
+        {
+          "type": "ambient-temp"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    }
+  ]
+}

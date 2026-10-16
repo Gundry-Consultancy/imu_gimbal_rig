@@ -1,0 +1,117 @@
+{
+  "exportedFromDevice": {
+    "sd_cs_pin": 23,
+    "referenceVoltage": 0,
+    "totalGPIOPins": 0,
+    "totalAnalogPins": 0,
+    "statusLEDBrightness": 0.3,
+    "autoConfig": false,
+    "rtc": "SOFT"
+  },
+  "components": [
+    {
+      "name": "pca9546_0x77",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "pca9546",
+      "i2cDeviceAddress": "0x77",
+      "i2cMuxAddress": "0x77",
+      "autoConfig": "false"
+    },
+    {
+      "name": "lsm303agr_m77_c0",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lsm303agr",
+      "i2cDeviceAddress": "0x19",
+      "i2cMuxAddress": "0x77",
+      "i2cMuxChannel": "0",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "magnetic-field"
+        }
+      ]
+    },
+    {
+      "name": "lsm9ds1_m77_c2",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lsm9ds1",
+      "i2cDeviceAddress": "0x6B",
+      "i2cMuxAddress": "0x77",
+      "i2cMuxChannel": "2",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "magnetic-field"
+        },
+        {
+          "type": "gyroscope"
+        },
+        {
+          "type": "ambient-temp"
+        }
+      ]
+    },
+    {
+      "name": "lis3mdl_m77_c2",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lis3mdl",
+      "i2cDeviceAddress": "0x1C",
+      "i2cMuxAddress": "0x77",
+      "i2cMuxChannel": "2",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "magnetic-field"
+        }
+      ]
+    },
+    {
+      "name": "ism330dhcx_m77_c3",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "ism330dhcx",
+      "i2cDeviceAddress": "0x6A",
+      "i2cMuxAddress": "0x77",
+      "i2cMuxChannel": "3",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "accelerometer"
+        },
+        {
+          "type": "gyroscope"
+        },
+        {
+          "type": "ambient-temp"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "lis3mdl_m77_c3",
+      "componentAPI": "i2c",
+      "i2cDeviceName": "lis3mdl",
+      "i2cDeviceAddress": "0x1C",
+      "i2cMuxAddress": "0x77",
+      "i2cMuxChannel": "3",
+      "autoConfig": "false",
+      "period": 5,
+      "i2cDeviceSensorTypes": [
+        {
+          "type": "magnetic-field"
+        }
+      ]
+    }
+  ]
+}
