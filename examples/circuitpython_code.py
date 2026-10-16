@@ -62,6 +62,7 @@ class PCA:
         self.i2c = board.I2C()
         self.buf = bytearray(5)
         mode1 = self.read(0x00)
+        mode1 &= 0xFE  # ALLCALL off: the all-call address (0x70) clashes with the TCA9548A mux
         prescale = self.read(0xFE)
         want = round(OSC_HZ / (4096 * TARGET_HZ)) - 1
         if mode1 & 0x10 or prescale != want:  # asleep or wrong rate: (re)configure without touching outputs
