@@ -28,7 +28,8 @@ import time
 import board
 import supervisor
 
-ADDRESS = 0x40
+ADDRESS = 0x41  # Servo FeatherWing with A0 bridged (0x40 + 1)
+FALLBACK_ADDRESS = 0x40  # used if nothing answers at ADDRESS (A0 not bridged)
 OSC_HZ = 25_000_000
 TARGET_HZ = 50
 ABS_MIN, ABS_MAX = 400, 2600
@@ -59,10 +60,18 @@ class PCA:
     """Minimal PCA9685 register access that never resets the chip."""
 
     def __init__(self):
+        global ADDRESS
         self.i2c = board.I2C()
+        self._lock()
+        try:
+            found = self.i2c.scan()
+        finally:
+            self.i2c.unlock()
+        if ADDRESS not in found and FALLBACK_ADDRESS in found:
+            ADDRESS = FALLBACK_ADDRESS
+        self.address = ADDRESS
         self.buf = bytearray(5)
         mode1 = self.read(0x00)
-        mode1 &= 0xFE  # ALLCALL off: the all-call address (0x70) clashes with the TCA9548A mux
         prescale = self.read(0xFE)
         want = round(OSC_HZ / (4096 * TARGET_HZ)) - 1
         if mode1 & 0x10 or prescale != want:  # asleep or wrong rate: (re)configure without touching outputs
@@ -188,7 +197,7 @@ def status():
                           duty=None if pos[i] is None else round(100 * pos[i] / pca.period_us, 3),
                           lo=c["lo"], hi=c["hi"], center=c["center"], rest=c["rest"], limits=c["limits"],
                           deg_span=c["deg"], cam=c["cam"], sweeping=i in sweeps, ramping=i in ramps))
-    return dict(type="status", period_us=round(pca.period_us, 2), interlock=interlock, busy=bool(queue),
+    return dict(type="status", pca_address="0x%02X" % pca.address, period_us=round(pca.period_us, 2), interlock=interlock, busy=bool(queue),
                 boot_off=boot_off(), nvm=NVM is not None,
                 channels=chans, cam=dict(rest=CAM_REST, park=CAM_PARK, single=CAM_SINGLE, double=CAM_DOUBLE))
 
@@ -367,7 +376,7 @@ def tick(now, dt):
         reply(**status())
 
 
-reply(type="hello", text="gimbal servo console ready", boot_off=boot_off())
+reply(type="hello", text="gimbal servo console ready (PCA9685 at 0x%02X)" % pca.address, boot_off=boot_off())
 reply(type="seqs", seqs=SEQS)
 reply(**status())
 buf = ""
